@@ -63,6 +63,8 @@ GLfloat rotate_y = 0.0f;
 // arm rotation
 GLfloat upper_arm_angle = -90.0f;
 GLfloat lower_arm_angle = -90.0f;
+GLfloat arm_length = 3.0f;
+glm::vec3 target_pos = glm::vec3(4.0f, 2.0f, -15.0f);
 
 // camera stuff
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -285,6 +287,36 @@ void generateObjectBufferMesh1(GLuint vao, ModelData mesh_data, GLuint programID
 }
 #pragma endregion VBO_FUNCTIONS
 
+#pragma region IK
+void analytical_soln(GLfloat x, GLfloat y) {
+
+	GLfloat l1 = 0, l2 = 0;
+	GLfloat ex = 0, ey = 0;
+	GLfloat sin2 = 0, cos2 = 0;
+	GLfloat angle1 = 0, angle2 = 0, tan1 = 0;
+	ex = x;
+	ey = y;
+
+	l1 = arm_length;
+	l2 = arm_length;
+	cos2 = ((ex * ex) + (ey * ey) - (l1 * l1) - (l2 * l2)) / (2 * l1 * l2);
+
+	if (cos2 >= -1.0 && cos2 <= 1.0) {
+		angle2 = (GLfloat)glm::acos(cos2);
+		upper_arm_angle = glm::degrees(angle2);
+
+		sin2 = (GLfloat)glm::sin(angle2);
+
+		tan1 = (-(l2 * sin2 * ex) + ((l1 + (l2 * cos2)) * ey)) / ((l2 * sin2 * ey) + ((l1 + (l2 * cos2)) * ex));
+
+		angle1 = glm::atan(tan1);
+		lower_arm_angle = glm::degrees(angle1);
+	}
+
+}
+
+#pragma endregion IK
+
 
 void display() {
 
@@ -334,7 +366,7 @@ void display() {
 	// --------------------------------- BALL --------------------------------------
 
 	glm::mat4 ball_model = glm::mat4(1.0f);
-	ball_model = glm::translate(glm::mat4(1.0f), glm::vec3(4.0f, 2.0f, -15.0f));
+	ball_model = glm::translate(glm::mat4(1.0f), target_pos);
 
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(ball_model));
 	glBindVertexArray(vao3);
@@ -453,6 +485,12 @@ void keypress(unsigned char key, int x, int y) {
 		case 'd':
 			// move camera right
 			cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp));
+			break;
+
+		// inverse kinematics
+
+		case 'f':
+			analytical_soln(target_pos.x, target_pos.y);
 			break;
 	}
 }
