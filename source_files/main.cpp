@@ -32,8 +32,9 @@ MESH TO LOAD
 ----------------------------------------------------------------------------*/
 // this mesh is a dae file format but you should be able to use any other format too, obj is typically what is used
 // put the mesh in your project directory, or provide a filepath for it here
-#define MONKEY "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/monkeyhead_smooth.dae"
-#define PLANE "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/plane.obj"
+#define ARM "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/arm.obj"
+#define BODY "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/body.obj"
+#define BALL "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/ball.obj"
 /*----------------------------------------------------------------------------
 ----------------------------------------------------------------------------*/
 
@@ -50,13 +51,28 @@ typedef struct
 using namespace std;
 GLuint shaderProgramID;
 
-ModelData plane, monkey;
-unsigned int vao1, vao2 = 0;
+ModelData ball, body, arm;
+unsigned int vao1, vao2, vao3 = 0;
+
 int width = 800;
 int height = 600;
 
 GLuint loc1, loc2, loc3;
 GLfloat rotate_y = 0.0f;
+
+// arm rotation
+GLfloat upper_arm_angle = -90.0f;
+GLfloat lower_arm_angle = -90.0f;
+
+// camera stuff
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -30.0f);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+int projType = 0;
+float fov = 45.0f;
+
+
 
 
 #pragma region MESH LOADING
@@ -277,43 +293,96 @@ void display() {
 	glDepthFunc(GL_LESS); // depth-testing interprets a smaller value as "closer"
 	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glUseProgram(shaderProgramID);
 
+	// --------------------------------- CAMERA --------------------------------------
+	
+	//setting up projection matrix
+	glm::mat4 persp_proj = glm::perspective(glm::radians(fov), (float)width / (float)height, 1.0f, 100.0f);
+	if (projType == 0) {
+		persp_proj = glm::perspective(45.0f, (float)width / (float)height, 1.0f, 100.0f);
+	}
+
+	else if (projType == 1) {
+		persp_proj = glm::ortho(-16.0f, 16.0f, -12.0f, 12.0f, 1.0f, 100.0f);
+	}
+
+	//setting up camera
+	//lookAt(position, target, up vector);
+	glm::mat4 view = glm::mat4(1.0f);
+	view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+
+	// --------------------------------- BODY --------------------------------------
+
+	glUseProgram(shaderProgramID);
 
 	//Declare your uniform variables that will be used in your shader
 	int matrix_location = glGetUniformLocation(shaderProgramID, "model");
 	int view_mat_location = glGetUniformLocation(shaderProgramID, "view");
 	int proj_mat_location = glGetUniformLocation(shaderProgramID, "proj");
 
-
-	// Root of the Hierarchy
-	mat4 view = identity_mat4();
-	mat4 persp_proj = perspective(45.0f, (float)width / (float)height, 0.1f, 1000.0f);
-	mat4 model = identity_mat4();
-	model = rotate_z_deg(model, rotate_y);
-	view = translate(view, vec3(0.0, 0.0, -10.0f));
+	glm::mat4 body_model = glm::mat4(1.0f);
+	body_model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -15.0f));
 
 	// update uniforms & draw
-	glUniformMatrix4fv(proj_mat_location, 1, GL_FALSE, persp_proj.m);
-	glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, view.m);
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, model.m);
+	glUniformMatrix4fv(proj_mat_location, 1, GL_FALSE, glm::value_ptr(persp_proj));
+	glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, glm::value_ptr(view));
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(body_model));
 
 	glBindVertexArray(vao1);
-	glDrawArrays(GL_TRIANGLES, 0, plane.mPointCount);
+	glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
 
-	// Set up the child matrix
-	mat4 modelChild = identity_mat4();
-	modelChild = rotate_z_deg(modelChild, 180);
-	modelChild = rotate_y_deg(modelChild, rotate_y);
-	modelChild = translate(modelChild, vec3(0.0f, 1.9f, 0.0f));
+	// --------------------------------- BALL --------------------------------------
 
-	// Apply the root matrix to the child matrix
-	modelChild = model * modelChild;
+	glm::mat4 ball_model = glm::mat4(1.0f);
+	ball_model = glm::translate(glm::mat4(1.0f), glm::vec3(4.0f, 2.0f, -15.0f));
 
-	// Update the appropriate uniform and draw the mesh again
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, modelChild.m);
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(ball_model));
+	glBindVertexArray(vao3);
+	glDrawArrays(GL_TRIANGLES, 0, ball.mPointCount);
+
+	// --------------------------------- UPPER ARM --------------------------------------
+
+	glm::mat4 t_upper_arm = glm::mat4(1.0f);
+	glm::mat4 rx_upper_arm = glm::mat4(1.0f);
+	glm::mat4 upper_arm = glm::mat4(1.0f);
+
+	t_upper_arm = glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, -15.0f));
+	rx_upper_arm = glm::rotate(glm::mat4(1.0f), upper_arm_angle, glm::vec3(0.0f, 0.0f, 1.0f));
+
+	upper_arm = t_upper_arm * rx_upper_arm;
+
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(upper_arm));
 	glBindVertexArray(vao2);
-	glDrawArrays(GL_TRIANGLES, 0, monkey.mPointCount);
+	glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
+
+	// --------------------------------- LOWER ARM --------------------------------------
+
+	glm::mat4 t_lower_arm = glm::mat4(1.0f);
+	glm::mat4 rx_lower_arm = glm::mat4(1.0f);
+	glm::mat4 lower_arm = glm::mat4(1.0f);
+
+	t_lower_arm = glm::translate(glm::mat4(1.0f), glm::vec3(4.0f, 0.0f, -15.0f));
+	rx_lower_arm = glm::rotate(glm::mat4(1.0f), lower_arm_angle, glm::vec3(0.0f, 0.0f, 1.0f));
+
+	lower_arm = t_lower_arm * rx_lower_arm;
+
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(lower_arm));
+	glBindVertexArray(vao2);
+	glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
+
+	//// Set up the child matrix
+	//mat4 modelChild = identity_mat4();
+	//modelChild = rotate_z_deg(modelChild, 180);
+	//modelChild = rotate_y_deg(modelChild, rotate_y);
+	//modelChild = translate(modelChild, vec3(0.0f, 1.9f, 0.0f));
+
+	//// Apply the root matrix to the child matrix
+	//modelChild = model * modelChild;
+
+	//// Update the appropriate uniform and draw the mesh again
+	//glUniformMatrix4fv(matrix_location, 1, GL_FALSE, modelChild.m);
+	//glBindVertexArray(vao2);
+	//glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
 
 	glutSwapBuffers();
 }
@@ -343,20 +412,48 @@ void init()
 	GLuint shaderProgramID = CompileShaders();
 	// load mesh into a vertex buffer array
 
-	plane = load_mesh(PLANE);
+	body = load_mesh(BODY);
 	glGenVertexArrays(1, &vao1);
-	generateObjectBufferMesh1(vao1, plane, shaderProgramID);
+	generateObjectBufferMesh1(vao1, body, shaderProgramID);
 
-	monkey = load_mesh(PLANE);
+	arm = load_mesh(ARM);
 	glGenVertexArrays(1, &vao2);
-	generateObjectBufferMesh1(vao2, monkey, shaderProgramID);
+	generateObjectBufferMesh1(vao2, arm, shaderProgramID);
+
+	ball = load_mesh(BALL);
+	glGenVertexArrays(1, &vao3);
+	generateObjectBufferMesh1(vao3, ball, shaderProgramID);
 
 }
 
 // Placeholder code for the keypress
 void keypress(unsigned char key, int x, int y) {
-	if (key == 'x') {
-		//Translate the base, etc.
+
+	switch (key) {
+		case 'z':
+			// move camera backwards
+			cameraPos += glm::vec3(0.0f, 0.0f, 2.0f);
+			break;
+		case 'x':
+			// move camera forewards
+			cameraPos -= glm::vec3(0.0f, 0.0f, 2.0f);
+			break;
+		case 'w':
+			// move camera upwards
+			cameraPos += glm::vec3(0.0f, 2.0f, 0.0f);
+			break;
+		case 's':
+			// move camera downwards
+			cameraPos -= glm::vec3(0.0f, 2.0f, 0.0f);
+			break;
+		case 'a':
+			// move camera left
+			cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp));
+			break;
+		case 'd':
+			// move camera right
+			cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp));
+			break;
 	}
 }
 
