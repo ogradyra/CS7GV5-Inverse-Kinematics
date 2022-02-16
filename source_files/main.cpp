@@ -27,9 +27,17 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
 
-// Meshes to load
-#define MOON "C:/Users/aogra/Desktop/mtass/mtass/moon.obj"
+/*----------------------------------------------------------------------------
+MESH TO LOAD
+----------------------------------------------------------------------------*/
+// this mesh is a dae file format but you should be able to use any other format too, obj is typically what is used
+// put the mesh in your project directory, or provide a filepath for it here
+#define MONKEY "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/monkeyhead_smooth.dae"
+#define PLANE "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/plane.obj"
+/*----------------------------------------------------------------------------
+----------------------------------------------------------------------------*/
 
+#pragma region SimpleTypes
 typedef struct
 {
 	size_t mPointCount = 0;
@@ -37,12 +45,13 @@ typedef struct
 	std::vector<vec3> mNormals;
 	std::vector<vec2> mTextureCoords;
 } ModelData;
+#pragma endregion SimpleTypes
 
 using namespace std;
 GLuint shaderProgramID;
 
-ModelData mesh_data;
-unsigned int mesh_vao = 0;
+ModelData plane, monkey;
+unsigned int vao1, vao2 = 0;
 int width = 800;
 int height = 600;
 
@@ -178,8 +187,8 @@ GLuint CompileShaders()
 	}
 
 	// Create two shader objects, one for the vertex, and one for the fragment shader
-	AddShader(shaderProgramID, "C:/Users/aogra/Desktop/mtass/mtass/simpleVertexShader.txt", GL_VERTEX_SHADER);
-	AddShader(shaderProgramID, "C:/Users/aogra/Desktop/mtass/mtass/simpleFragmentShader.txt", GL_FRAGMENT_SHADER);
+	AddShader(shaderProgramID, "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/simpleVertexShader.txt", GL_VERTEX_SHADER);
+	AddShader(shaderProgramID, "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/simpleFragmentShader.txt", GL_FRAGMENT_SHADER);
 
 	GLint Success = 0;
 	GLchar ErrorLog[1024] = { '\0' };
@@ -215,7 +224,7 @@ GLuint CompileShaders()
 
 // VBO Functions - click on + to expand
 #pragma region VBO_FUNCTIONS
-void generateObjectBufferMesh() {
+void generateObjectBufferMesh1(GLuint vao, ModelData mesh_data, GLuint programID) {
 	/*----------------------------------------------------------------------------
 	LOAD MESH HERE AND COPY INTO BUFFERS
 	----------------------------------------------------------------------------*/
@@ -223,40 +232,40 @@ void generateObjectBufferMesh() {
 	//Note: you may get an error "vector subscript out of range" if you are using this code for a mesh that doesnt have positions and normals
 	//Might be an idea to do a check for that before generating and binding the buffer.
 
-	mesh_data = load_mesh(MOON);
 	unsigned int vp_vbo = 0;
-	loc1 = glGetAttribLocation(shaderProgramID, "vertex_position");
-	loc2 = glGetAttribLocation(shaderProgramID, "vertex_normal");
-	loc3 = glGetAttribLocation(shaderProgramID, "vertex_texture");
+	unsigned int vn_vbo = 0;
+	unsigned int vt_vbo = 0;
+
+	loc1 = glGetAttribLocation(programID, "vertex_position");
+	loc2 = glGetAttribLocation(programID, "vertex_normal");
+	loc3 = glGetAttribLocation(programID, "vertex_texture");
 
 	glGenBuffers(1, &vp_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, vp_vbo);
 	glBufferData(GL_ARRAY_BUFFER, mesh_data.mPointCount * sizeof(vec3), &mesh_data.mVertices[0], GL_STATIC_DRAW);
-	unsigned int vn_vbo = 0;
+
 	glGenBuffers(1, &vn_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, vn_vbo);
 	glBufferData(GL_ARRAY_BUFFER, mesh_data.mPointCount * sizeof(vec3), &mesh_data.mNormals[0], GL_STATIC_DRAW);
 
-	//	This is for texture coordinates which you don't currently need, so I have commented it out
-	//	unsigned int vt_vbo = 0;
-	//	glGenBuffers (1, &vt_vbo);
-	//	glBindBuffer (GL_ARRAY_BUFFER, vt_vbo);
-	//	glBufferData (GL_ARRAY_BUFFER, monkey_head_data.mTextureCoords * sizeof (vec2), &monkey_head_data.mTextureCoords[0], GL_STATIC_DRAW);
+	glGenBuffers(1, &vt_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vt_vbo);
+	glBufferData(GL_ARRAY_BUFFER, mesh_data.mPointCount * sizeof(vec2), &mesh_data.mTextureCoords[0], GL_STATIC_DRAW);
 
-	unsigned int vao = 0;
 	glBindVertexArray(vao);
 
 	glEnableVertexAttribArray(loc1);
 	glBindBuffer(GL_ARRAY_BUFFER, vp_vbo);
 	glVertexAttribPointer(loc1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
 	glEnableVertexAttribArray(loc2);
 	glBindBuffer(GL_ARRAY_BUFFER, vn_vbo);
 	glVertexAttribPointer(loc2, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
-	//	This is for texture coordinates which you don't currently need, so I have commented it out
-	//	glEnableVertexAttribArray (loc3);
-	//	glBindBuffer (GL_ARRAY_BUFFER, vt_vbo);
-	//	glVertexAttribPointer (loc3, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+	glEnableVertexAttribArray(loc3);
+	glBindBuffer(GL_ARRAY_BUFFER, vt_vbo);
+	glVertexAttribPointer(loc3, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+
 }
 #pragma endregion VBO_FUNCTIONS
 
@@ -288,7 +297,9 @@ void display() {
 	glUniformMatrix4fv(proj_mat_location, 1, GL_FALSE, persp_proj.m);
 	glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, view.m);
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, model.m);
-	glDrawArrays(GL_TRIANGLES, 0, mesh_data.mPointCount);
+
+	glBindVertexArray(vao1);
+	glDrawArrays(GL_TRIANGLES, 0, plane.mPointCount);
 
 	// Set up the child matrix
 	mat4 modelChild = identity_mat4();
@@ -301,7 +312,8 @@ void display() {
 
 	// Update the appropriate uniform and draw the mesh again
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, modelChild.m);
-	glDrawArrays(GL_TRIANGLES, 0, mesh_data.mPointCount);
+	glBindVertexArray(vao2);
+	glDrawArrays(GL_TRIANGLES, 0, monkey.mPointCount);
 
 	glutSwapBuffers();
 }
@@ -330,7 +342,14 @@ void init()
 	// Set up the shaders
 	GLuint shaderProgramID = CompileShaders();
 	// load mesh into a vertex buffer array
-	generateObjectBufferMesh();
+
+	plane = load_mesh(PLANE);
+	glGenVertexArrays(1, &vao1);
+	generateObjectBufferMesh1(vao1, plane, shaderProgramID);
+
+	monkey = load_mesh(PLANE);
+	glGenVertexArrays(1, &vao2);
+	generateObjectBufferMesh1(vao2, monkey, shaderProgramID);
 
 }
 
