@@ -62,10 +62,10 @@ GLuint loc1, loc2, loc3;
 GLfloat rotate_y = 0.0f;
 
 // arm rotation
-GLfloat upper_arm_angle = -90.0f;
-GLfloat lower_arm_angle = 0.0f;
-GLfloat arm_length = 3.0f;
-glm::vec3 target_pos = glm::vec3(4.0f, 2.0f, -15.0f);
+float upper_arm_angle;
+float lower_arm_angle;
+float arm_length = 3.0f;
+glm::vec3 target_pos = glm::vec3(3.0f, 3.0f, -15.0f);
 
 // camera stuff
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -289,24 +289,41 @@ void generateObjectBufferMesh1(GLuint vao, ModelData mesh_data, GLuint programID
 #pragma endregion VBO_FUNCTIONS
 
 #pragma region IK
-void analytical_soln(GLfloat x, GLfloat y) {
+void analytical_soln(float x, float y) {
 
-	GLfloat l1 = 0, l2 = 0;
-	GLfloat ex = 0, ey = 0;
-	GLfloat sin2 = 0, cos2 = 0;
-	GLfloat angle1 = 0, angle2 = 0, tan1 = 0;
+	float d = 0;
+	float l1 = 0, l2 = 0;
+	float ex = 0, ey = 0;
+	float theta_t = 0, theta1 = 0, theta2 = 0;
+
+	float cos2 = 0, sin2 = 0, tan1 = 0;
+	float angle1 = 0, angle2 = 0;
+
 	ex = x;
 	ey = y;
 
 	l1 = arm_length;
 	l2 = arm_length;
+
+	/*d = (float)glm::sqrt((ex * ex) + (ey * ey));
+
+	theta_t = (float)glm::acos(ex / d);
+
+	theta1 = (float)glm::acos(((l1 * l1) + (ex * ex) + (ey * ey) - (l2 * l2)) / (2 * l1 * d)) + theta_t;
+
+	upper_arm_angle = glm::radians(theta1);
+
+	theta2 = 180 - (((l1 * l1) + (l2 * l2) - (d * d)) / (2 * l1 * l2));
+
+	lower_arm_angle = glm::radians(theta2);*/
+
 	cos2 = ((ex * ex) + (ey * ey) - (l1 * l1) - (l2 * l2)) / (2 * l1 * l2);
 
 	if (cos2 >= -1.0 && cos2 <= 1.0) {
-		angle2 = (GLfloat)glm::acos(cos2);
+		angle2 = (float)glm::acos(cos2);
 		upper_arm_angle = glm::degrees(angle2);
 
-		sin2 = (GLfloat)glm::sin(angle2);
+		sin2 = (float)glm::sin(angle2);
 
 		tan1 = (-(l2 * sin2 * ex) + ((l1 + (l2 * cos2)) * ey)) / ((l2 * sin2 * ey) + ((l1 + (l2 * cos2)) * ex));
 
@@ -328,7 +345,7 @@ void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// --------------------------------- CAMERA --------------------------------------
-	
+
 	//setting up projection matrix
 	glm::mat4 persp_proj = glm::perspective(glm::radians(fov), (float)width / (float)height, 1.0f, 100.0f);
 	if (projType == 0) {
@@ -369,7 +386,7 @@ void display() {
 	// --------------------------------- BALL --------------------------------------
 
 	glm::mat4 ball_model = glm::mat4(1.0f);
-	ball_model = glm::translate(glm::mat4(1.0f), target_pos);
+	ball_model = glm::translate(glm::mat4(1.0f), glm::vec3(4.0f, 3.0f, -15.0f));
 
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(ball_model));
 	glBindVertexArray(vao3);
@@ -382,7 +399,7 @@ void display() {
 	glm::mat4 upper_j = glm::mat4(1.0f);
 
 	t_upper_j = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	rx_upper_j = glm::rotate(glm::mat4(1.0f), upper_arm_angle, glm::vec3(0.0f, 0.0f, 1.0f));
+	rx_upper_j = glm::rotate(glm::mat4(1.0f), glm::radians(upper_arm_angle), glm::vec3(0.0f, 0.0f, 1.0f));
 	upper_j = t_upper_j * rx_upper_j;
 
 	glm::mat4 global1 = body_model * upper_j;
@@ -409,7 +426,7 @@ void display() {
 	glm::mat4 lower_j = glm::mat4(1.0f);
 
 	t_lower_j = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, 0.0f));
-	rx_lower_j = glm::rotate(glm::mat4(1.0f), lower_arm_angle, glm::vec3(0.0f, 0.0f, 1.0f));
+	rx_lower_j = glm::rotate(glm::mat4(1.0f), glm::radians(lower_arm_angle), glm::vec3(0.0f, 0.0f, 1.0f));
 	lower_j = t_lower_j * rx_lower_j;
 
 	glm::mat4 global3 = body_model * upper_j * upper_arm * lower_j;
@@ -422,7 +439,7 @@ void display() {
 
 	glm::mat4 lower_arm = glm::mat4(1.0f);
 	lower_arm = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	
+
 	glm::mat4 global4 = body_model * upper_j * upper_arm * lower_j * lower_arm;
 
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global4));
@@ -479,36 +496,36 @@ void init()
 void keypress(unsigned char key, int x, int y) {
 
 	switch (key) {
-		case 'z':
-			// move camera backwards
-			cameraPos += glm::vec3(0.0f, 0.0f, 2.0f);
-			break;
-		case 'x':
-			// move camera forewards
-			cameraPos -= glm::vec3(0.0f, 0.0f, 2.0f);
-			break;
-		case 'w':
-			// move camera upwards
-			cameraPos += glm::vec3(0.0f, 2.0f, 0.0f);
-			break;
-		case 's':
-			// move camera downwards
-			cameraPos -= glm::vec3(0.0f, 2.0f, 0.0f);
-			break;
-		case 'a':
-			// move camera left
-			cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp));
-			break;
-		case 'd':
-			// move camera right
-			cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp));
-			break;
+	case 'z':
+		// move camera backwards
+		cameraPos += glm::vec3(0.0f, 0.0f, 2.0f);
+		break;
+	case 'x':
+		// move camera forewards
+		cameraPos -= glm::vec3(0.0f, 0.0f, 2.0f);
+		break;
+	case 'w':
+		// move camera upwards
+		cameraPos += glm::vec3(0.0f, 2.0f, 0.0f);
+		break;
+	case 's':
+		// move camera downwards
+		cameraPos -= glm::vec3(0.0f, 2.0f, 0.0f);
+		break;
+	case 'a':
+		// move camera left
+		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp));
+		break;
+	case 'd':
+		// move camera right
+		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp));
+		break;
 
 		// inverse kinematics
 
-		case 'f':
-			analytical_soln(target_pos.x, target_pos.y);
-			break;
+	case 'f':
+		analytical_soln(target_pos.x, target_pos.y);
+		break;
 	}
 }
 
