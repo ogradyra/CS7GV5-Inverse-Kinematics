@@ -35,6 +35,7 @@ MESH TO LOAD
 #define ARM "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/arm.obj"
 #define BODY "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/body.obj"
 #define BALL "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/ball.obj"
+#define JOINT "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/joint.obj"
 /*----------------------------------------------------------------------------
 ----------------------------------------------------------------------------*/
 
@@ -51,8 +52,8 @@ typedef struct
 using namespace std;
 GLuint shaderProgramID;
 
-ModelData ball, body, arm;
-unsigned int vao1, vao2, vao3 = 0;
+ModelData ball, body, arm, joint;
+unsigned int vao1, vao2, vao3, vao4 = 0;
 
 int width = 800;
 int height = 600;
@@ -62,7 +63,7 @@ GLfloat rotate_y = 0.0f;
 
 // arm rotation
 GLfloat upper_arm_angle = -90.0f;
-GLfloat lower_arm_angle = -90.0f;
+GLfloat lower_arm_angle = 0.0f;
 GLfloat arm_length = 3.0f;
 glm::vec3 target_pos = glm::vec3(4.0f, 2.0f, -15.0f);
 
@@ -355,10 +356,12 @@ void display() {
 	glm::mat4 body_model = glm::mat4(1.0f);
 	body_model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -15.0f));
 
+	glm::mat4 global0 = body_model;
+
 	// update uniforms & draw
 	glUniformMatrix4fv(proj_mat_location, 1, GL_FALSE, glm::value_ptr(persp_proj));
 	glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, glm::value_ptr(view));
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(body_model));
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global0));
 
 	glBindVertexArray(vao1);
 	glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
@@ -372,49 +375,59 @@ void display() {
 	glBindVertexArray(vao3);
 	glDrawArrays(GL_TRIANGLES, 0, ball.mPointCount);
 
+	// --------------------------------- UPPER JOINT --------------------------------------
+
+	glm::mat4 t_upper_j = glm::mat4(1.0f);
+	glm::mat4 rx_upper_j = glm::mat4(1.0f);
+	glm::mat4 upper_j = glm::mat4(1.0f);
+
+	t_upper_j = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	rx_upper_j = glm::rotate(glm::mat4(1.0f), upper_arm_angle, glm::vec3(0.0f, 0.0f, 1.0f));
+	upper_j = t_upper_j * rx_upper_j;
+
+	glm::mat4 global1 = body_model * upper_j;
+
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global1));
+	glBindVertexArray(vao4);
+	glDrawArrays(GL_TRIANGLES, 0, joint.mPointCount);
+
 	// --------------------------------- UPPER ARM --------------------------------------
 
-	glm::mat4 t_upper_arm = glm::mat4(1.0f);
-	glm::mat4 rx_upper_arm = glm::mat4(1.0f);
 	glm::mat4 upper_arm = glm::mat4(1.0f);
+	upper_arm = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-	t_upper_arm = glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, -15.0f));
-	rx_upper_arm = glm::rotate(glm::mat4(1.0f), upper_arm_angle, glm::vec3(0.0f, 0.0f, 1.0f));
+	glm::mat4 global2 = body_model * upper_j * upper_arm;
 
-	upper_arm = t_upper_arm * rx_upper_arm;
-
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(upper_arm));
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global2));
 	glBindVertexArray(vao2);
 	glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
+
+	// --------------------------------- LOWER JOINT --------------------------------------
+
+	glm::mat4 t_lower_j = glm::mat4(1.0f);
+	glm::mat4 rx_lower_j = glm::mat4(1.0f);
+	glm::mat4 lower_j = glm::mat4(1.0f);
+
+	t_lower_j = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, 0.0f));
+	rx_lower_j = glm::rotate(glm::mat4(1.0f), lower_arm_angle, glm::vec3(0.0f, 0.0f, 1.0f));
+	lower_j = t_lower_j * rx_lower_j;
+
+	glm::mat4 global3 = body_model * upper_j * upper_arm * lower_j;
+
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global3));
+	glBindVertexArray(vao4);
+	glDrawArrays(GL_TRIANGLES, 0, joint.mPointCount);
 
 	// --------------------------------- LOWER ARM --------------------------------------
 
-	glm::mat4 t_lower_arm = glm::mat4(1.0f);
-	glm::mat4 rx_lower_arm = glm::mat4(1.0f);
 	glm::mat4 lower_arm = glm::mat4(1.0f);
+	lower_arm = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	
+	glm::mat4 global4 = body_model * upper_j * upper_arm * lower_j * lower_arm;
 
-	t_lower_arm = glm::translate(glm::mat4(1.0f), glm::vec3(4.0f, 0.0f, -15.0f));
-	rx_lower_arm = glm::rotate(glm::mat4(1.0f), lower_arm_angle, glm::vec3(0.0f, 0.0f, 1.0f));
-
-	lower_arm = t_lower_arm * rx_lower_arm;
-
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(lower_arm));
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global4));
 	glBindVertexArray(vao2);
 	glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
-
-	//// Set up the child matrix
-	//mat4 modelChild = identity_mat4();
-	//modelChild = rotate_z_deg(modelChild, 180);
-	//modelChild = rotate_y_deg(modelChild, rotate_y);
-	//modelChild = translate(modelChild, vec3(0.0f, 1.9f, 0.0f));
-
-	//// Apply the root matrix to the child matrix
-	//modelChild = model * modelChild;
-
-	//// Update the appropriate uniform and draw the mesh again
-	//glUniformMatrix4fv(matrix_location, 1, GL_FALSE, modelChild.m);
-	//glBindVertexArray(vao2);
-	//glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
 
 	glutSwapBuffers();
 }
@@ -455,6 +468,10 @@ void init()
 	ball = load_mesh(BALL);
 	glGenVertexArrays(1, &vao3);
 	generateObjectBufferMesh1(vao3, ball, shaderProgramID);
+
+	joint = load_mesh(JOINT);
+	glGenVertexArrays(1, &vao4);
+	generateObjectBufferMesh1(vao4, joint, shaderProgramID);
 
 }
 
