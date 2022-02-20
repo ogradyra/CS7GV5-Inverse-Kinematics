@@ -62,14 +62,13 @@ GLuint loc1, loc2, loc3;
 GLfloat rotate_y = 0.0f;
 
 // arm rotation
-float upper_arm_angle;
-float lower_arm_angle;
-float arm_length = 3.0f;
-glm::vec3 target_pos = glm::vec3(3.0f, 3.0f, -15.0f);
+glm::vec2 arm_angles;
+int arm_length = 3;
+glm::vec3 target_pos(4.0f, 0.0f, 0.0f);
 
 // camera stuff
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -30.0f);
+glm::vec3 cameraPos = glm::vec3(3.0f, 0.0f, 10.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
 int projType = 0;
@@ -289,7 +288,7 @@ void generateObjectBufferMesh1(GLuint vao, ModelData mesh_data, GLuint programID
 #pragma endregion VBO_FUNCTIONS
 
 #pragma region IK
-void analytical_soln(float x, float y) {
+glm::vec2 analytical_soln(glm::vec3 starting_pos) {
 
 	float d = 0;
 	float l1 = 0, l2 = 0;
@@ -299,38 +298,27 @@ void analytical_soln(float x, float y) {
 	float cos2 = 0, sin2 = 0, tan1 = 0;
 	float angle1 = 0, angle2 = 0;
 
-	ex = x;
-	ey = y;
+	ex = starting_pos.x;
+	ey = starting_pos.y;
 
 	l1 = arm_length;
 	l2 = arm_length;
 
-	/*d = (float)glm::sqrt((ex * ex) + (ey * ey));
+	d = glm::sqrt((ex * ex) + (ey * ey));
 
-	theta_t = (float)glm::acos(ex / d);
+	theta_t = glm::acos(ex / d);
 
-	theta1 = (float)glm::acos(((l1 * l1) + (ex * ex) + (ey * ey) - (l2 * l2)) / (2 * l1 * d)) + theta_t;
+	theta1 = glm::acos(((l1 * l1) + (ex * ex) + (ey * ey) - (l2 * l2)) / (2 * l1 * d)) + theta_t;
+	std::cout << glm::degrees(theta1) << endl;
 
-	upper_arm_angle = glm::radians(theta1);
+	//upper_arm_angle = theta1;
 
-	theta2 = 180 - (((l1 * l1) + (l2 * l2) - (d * d)) / (2 * l1 * l2));
+	theta2 = 3.14 - (((l1 * l1) + (l2 * l2) - (d * d)) / (2 * l1 * l2));
+	std::cout << glm::degrees(theta2) << endl;
 
-	lower_arm_angle = glm::radians(theta2);*/
+	//lower_arm_angle = theta2;
 
-	cos2 = ((ex * ex) + (ey * ey) - (l1 * l1) - (l2 * l2)) / (2 * l1 * l2);
-
-	if (cos2 >= -1.0 && cos2 <= 1.0) {
-		angle2 = (float)glm::acos(cos2);
-		upper_arm_angle = glm::degrees(angle2);
-
-		sin2 = (float)glm::sin(angle2);
-
-		tan1 = (-(l2 * sin2 * ex) + ((l1 + (l2 * cos2)) * ey)) / ((l2 * sin2 * ey) + ((l1 + (l2 * cos2)) * ex));
-
-		angle1 = glm::atan(tan1);
-		lower_arm_angle = glm::degrees(angle1);
-	}
-
+	return glm::vec2(theta1, theta2);
 }
 
 #pragma endregion IK
@@ -381,12 +369,12 @@ void display() {
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global0));
 
 	glBindVertexArray(vao1);
-	glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
+	//glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
 
 	// --------------------------------- BALL --------------------------------------
 
 	glm::mat4 ball_model = glm::mat4(1.0f);
-	ball_model = glm::translate(glm::mat4(1.0f), glm::vec3(4.0f, 3.0f, -15.0f));
+	ball_model = glm::translate(glm::mat4(1.0f), target_pos);
 
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(ball_model));
 	glBindVertexArray(vao3);
@@ -394,17 +382,10 @@ void display() {
 
 	// --------------------------------- UPPER JOINT --------------------------------------
 
-	glm::mat4 t_upper_j = glm::mat4(1.0f);
-	glm::mat4 rx_upper_j = glm::mat4(1.0f);
 	glm::mat4 upper_j = glm::mat4(1.0f);
+	upper_j = glm::rotate(upper_j, glm::degrees(arm_angles.x), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	t_upper_j = glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	rx_upper_j = glm::rotate(glm::mat4(1.0f), glm::radians(upper_arm_angle), glm::vec3(0.0f, 0.0f, 1.0f));
-	upper_j = t_upper_j * rx_upper_j;
-
-	glm::mat4 global1 = body_model * upper_j;
-
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global1));
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(upper_j));
 	glBindVertexArray(vao4);
 	glDrawArrays(GL_TRIANGLES, 0, joint.mPointCount);
 
@@ -412,37 +393,36 @@ void display() {
 
 	glm::mat4 upper_arm = glm::mat4(1.0f);
 	upper_arm = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	//upper_arm = glm::rotate(upper_arm, glm::degrees(arm_angles.y), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	glm::mat4 global2 = body_model * upper_j * upper_arm;
+	glm::mat4 g1 = upper_j * upper_arm;
 
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global2));
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(g1));
 	glBindVertexArray(vao2);
 	glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
 
 	// --------------------------------- LOWER JOINT --------------------------------------
 
-	glm::mat4 t_lower_j = glm::mat4(1.0f);
-	glm::mat4 rx_lower_j = glm::mat4(1.0f);
 	glm::mat4 lower_j = glm::mat4(1.0f);
+	lower_j = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, 0.0f));
+	lower_j = glm::rotate(lower_j, glm::degrees(arm_angles.y), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	t_lower_j = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, 0.0f));
-	rx_lower_j = glm::rotate(glm::mat4(1.0f), glm::radians(lower_arm_angle), glm::vec3(0.0f, 0.0f, 1.0f));
-	lower_j = t_lower_j * rx_lower_j;
+	glm::mat4 g2 = upper_j * upper_arm * lower_j;
 
-	glm::mat4 global3 = body_model * upper_j * upper_arm * lower_j;
-
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global3));
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(g2));
 	glBindVertexArray(vao4);
 	glDrawArrays(GL_TRIANGLES, 0, joint.mPointCount);
 
 	// --------------------------------- LOWER ARM --------------------------------------
 
 	glm::mat4 lower_arm = glm::mat4(1.0f);
-	lower_arm = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	lower_arm = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+	//lower_arm = glm::rotate(lower_arm, glm::degrees(arm_angles.y), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	glm::mat4 global4 = body_model * upper_j * upper_arm * lower_j * lower_arm;
+	//glm::mat4 global4 = upper_j * upper_arm * lower_j * lower_arm;
+	glm::mat4 g3 = upper_j * upper_arm * lower_j * lower_arm;
 
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global4));
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(g3));
 	glBindVertexArray(vao2);
 	glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
 
@@ -523,8 +503,21 @@ void keypress(unsigned char key, int x, int y) {
 
 		// inverse kinematics
 
+	case 'o':
+		target_pos.x += 0.5f;
+		break;
+	case 'p':
+		target_pos.x -= 0.5f;
+		break;
+	case 'l':
+		target_pos.y += 0.5f;
+		break;
+	case 'k':
+		target_pos.y -= 0.5f;
+		break;
+
 	case 'f':
-		analytical_soln(target_pos.x, target_pos.y);
+		arm_angles = analytical_soln(target_pos);
 		break;
 	}
 }
