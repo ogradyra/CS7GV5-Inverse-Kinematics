@@ -7,6 +7,7 @@
 #include "glm/gtc/type_ptr.hpp"
 
 glm::vec2 analytical_soln(glm::vec3 starting_pos);
+glm::vec3 ComputeCCD(int x, int y);
 
 
 #endif
