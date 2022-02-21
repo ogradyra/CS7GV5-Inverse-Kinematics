@@ -20,7 +20,16 @@ using namespace std;
 float arm_length = 2.708;
 float last_theta = 0;
 
-#pragma region IK
+int effectors = 3;
+glm::vec3 links[3];
+
+void setUpLinks() {
+	links[0] = glm::vec3(0.0f, 0.0f, 0.0f);
+	links[1] = glm::vec3(3.9f, 0.0f, 0.0f);
+	links[2] = glm::vec3(7.8f, 0.0f, 0.0f);
+}
+
+#pragma region SIMPLE_IK
 glm::vec2 analytical_soln(glm::vec3 starting_pos) {
 
 	float d = 0;
@@ -68,5 +77,113 @@ glm::vec2 analytical_soln(glm::vec3 starting_pos) {
 	return glm::vec2(glm::degrees(theta1), glm::degrees(theta2));
 }
 
-#pragma endregion IK
+#pragma endregion SIMPLE_IK
 
+#pragma region VEC_FUNCS
+
+double VectorSquaredDistance(glm::vec3* v1, glm::vec3* v2)
+{
+	return(((v1->x - v2->x) * (v1->x - v2->x)) +
+		((v1->y - v2->y) * (v1->y - v2->y)) +
+		((v1->z - v2->z) * (v1->z - v2->z)));
+}
+
+double VectorSquaredLength(glm::vec3* v)
+{
+	return((v->x * v->x) + (v->y * v->y) + (v->z * v->z));
+}
+
+double VectorLength(glm::vec3* v)
+{
+	return(sqrt(VectorSquaredLength(v)));
+}
+
+void NormalizeVector(glm::vec3* v)
+{
+	float len = (float)VectorLength(v);
+	if (len != 0.0)
+	{
+		v->x /= len;
+		v->y /= len;
+		v->z /= len;
+	}
+}
+
+double DotProduct(glm::vec3* v1, glm::vec3* v2)
+{
+	return ((v1->x * v2->x) + (v1->y * v2->y) + (v1->z + v2->z));
+}
+
+void CrossProduct(glm::vec3* v1, glm::vec3* v2, glm::vec3* result)
+{
+	result->x = (v1->y * v2->z) - (v1->z * v2->y);
+	result->y = (v1->z * v2->x) - (v1->x * v2->z);
+	result->z = (v1->x * v2->y) - (v1->y * v2->x);
+}
+
+#pragma endregion VEC_FUNCS
+
+#pragma region CCD
+
+glm::vec3 ComputeCCD(int x, int y) {
+
+	glm::vec3 rootPos, curEnd, desiredEnd, targetVector, curVector, crossResult;
+	glm::vec3 angles(90.0f, 0.0f, 0.0f);
+
+	double cosAngle, turnAngle, turnDeg;
+	int link, tries;
+	bool found = false;
+
+	link = effectors - 1;
+	tries = 0;
+
+	while (tries < 100 && link >= 0) {
+		rootPos.x = links[link].x;
+		rootPos.y = links[link].y;
+		rootPos.z = links[link].z;
+
+		curEnd.x = links[effectors].x;
+		curEnd.y = links[effectors].y;
+		curEnd.z = 0.0f;
+
+		desiredEnd.x = float(x);
+		desiredEnd.y = float(y);
+		desiredEnd.z = 0.0f;
+
+		if (VectorSquaredDistance(&curEnd, &desiredEnd) > 1.0f) {
+			curVector.x = curEnd.x - rootPos.x;
+			curVector.y = curEnd.y - rootPos.y;
+			curVector.z = curEnd.z - rootPos.z;
+
+			targetVector.x = x - rootPos.x;
+			targetVector.y = y - rootPos.y;
+			targetVector.z = 0.0f;
+
+			NormalizeVector(&curVector);
+			NormalizeVector(&targetVector);
+
+			cosAngle = DotProduct(&targetVector, &curVector);
+
+			if (cosAngle < 0.99999) {
+				CrossProduct(&targetVector, &curVector, &crossResult);
+				if (crossResult.z > 0.0f) {
+					turnAngle = glm::acos((float)cosAngle);
+					turnDeg = glm::degrees(turnAngle);
+					angles[link] -= (float)turnDeg;
+				}
+				else if (crossResult.z < 0.0f) {
+					turnAngle = glm::acos((float)cosAngle);
+					turnDeg = glm::degrees(turnAngle);
+					angles[link] += (float)turnDeg;
+				}
+			}
+		}
+
+		tries++;
+		link--;
+	}
+
+	return(angles);
+}
+
+#pragma endregion CCD
