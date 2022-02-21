@@ -64,6 +64,8 @@ GLfloat rotate_y = 0.0f;
 
 // arm rotation
 glm::vec2 arm_angles(90.0f, -90.0f);
+glm::vec3 angles;
+
 //float arm_length = 2.708;
 
 //float last_theta = 0;
@@ -73,7 +75,7 @@ float cone_length = 2.708;
 glm::vec3 target_pos(4.0f, 0.0f, 0.0f);
 
 // camera stuff
-glm::vec3 cameraPos = glm::vec3(3.0f, 0.0f, 10.0f);
+glm::vec3 cameraPos = glm::vec3(0.0f, 2.0f, 16.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -351,25 +353,64 @@ void display() {
 	glBindVertexArray(vao1);
 	glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
 	
-	// --------------------------------- UPPER ARM --------------------------------------
+	if (a_soln) {
 
-	glm::mat4 upper_arm = glm::mat4(1.0f);
-	upper_arm = glm::rotate(upper_arm, glm::radians(arm_angles.x), glm::vec3(0.0f, 0.0f, 1.0f));
+		// --------------------------------- UPPER ARM --------------------------------------
 
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(upper_arm));
-	glBindVertexArray(vao2);
-	glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
+		glm::mat4 upper_arm = glm::mat4(1.0f);
+		upper_arm = glm::rotate(upper_arm, glm::radians(arm_angles.x), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	// --------------------------------- LOWER ARM --------------------------------------
+		glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(upper_arm));
+		glBindVertexArray(vao2);
+		glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
 
-	glm::mat4 lower_arm = glm::mat4(1.0f);
-	lower_arm = glm::translate(glm::mat4(1.0f), glm::vec3(2.7f, 0.0f, 0.0f));
-	lower_arm = glm::rotate(lower_arm, glm::radians(arm_angles.y + 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	lower_arm = upper_arm * lower_arm;
+		// --------------------------------- LOWER ARM --------------------------------------
 
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(lower_arm));
-	glBindVertexArray(vao2);
-	glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
+		glm::mat4 lower_arm = glm::mat4(1.0f);
+		lower_arm = glm::translate(glm::mat4(1.0f), glm::vec3(2.7f, 0.0f, 0.0f));
+		lower_arm = glm::rotate(lower_arm, glm::radians(arm_angles.y + 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		lower_arm = upper_arm * lower_arm;
+
+		glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(lower_arm));
+		glBindVertexArray(vao2);
+		glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
+	}
+
+	else if (ccd) {
+
+		// --------------------------------- LINK 1 --------------------------------------
+
+		glm::mat4 link1 = glm::mat4(1.0f);
+		link1 = glm::rotate(link1, glm::radians(angles[0]), glm::vec3(0.0f, 0.0f, 1.0f));
+
+		glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(link1));
+		glBindVertexArray(vao2);
+		glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
+
+		// --------------------------------- LINK 2 --------------------------------------
+
+		glm::mat4 link2 = glm::mat4(1.0f);
+		link2 = glm::translate(glm::mat4(1.0f), glm::vec3(2.7f, 0.0f, 0.0f));
+		link2 = glm::rotate(link2, glm::radians(angles.y), glm::vec3(0.0f, 0.0f, 1.0f));
+		link2 = link1 * link2;
+
+		glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(link2));
+		glBindVertexArray(vao2);
+		glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
+
+		// --------------------------------- LINK 3 --------------------------------------
+
+		glm::mat4 link3 = glm::mat4(1.0f);
+		link3 = glm::translate(glm::mat4(1.0f), glm::vec3(2.7f, 0.0f, 0.0f));
+		link3 = glm::rotate(link3, glm::radians(angles.z), glm::vec3(0.0f, 0.0f, 1.0f));
+		link3 = link2 * link3;
+
+		glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(link3));
+		glBindVertexArray(vao2);
+		glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
+
+
+	}
 
 	glutSwapBuffers();
 }
@@ -424,26 +465,32 @@ void keypress(unsigned char key, int x, int y) {
 	case 'z':
 		// move camera backwards
 		cameraPos += glm::vec3(0.0f, 0.0f, 2.0f);
+		std::cout << "camera pos: " << cameraPos.x << ", " << cameraPos.y << ", " << cameraPos.z << endl;
 		break;
 	case 'x':
 		// move camera forewards
 		cameraPos -= glm::vec3(0.0f, 0.0f, 2.0f);
+		std::cout << "camera pos: " << cameraPos.x << ", " << cameraPos.y << ", " << cameraPos.z << endl;
 		break;
 	case 'w':
 		// move camera upwards
 		cameraPos += glm::vec3(0.0f, 2.0f, 0.0f);
+		std::cout << "camera pos: " << cameraPos.x << ", " << cameraPos.y << ", " << cameraPos.z << endl;
 		break;
 	case 's':
 		// move camera downwards
 		cameraPos -= glm::vec3(0.0f, 2.0f, 0.0f);
+		std::cout << "camera pos: " << cameraPos.x << ", " << cameraPos.y << ", " << cameraPos.z << endl;
 		break;
 	case 'a':
 		// move camera left
 		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp));
+		std::cout << "camera pos: " << cameraPos.x << ", " << cameraPos.y << ", " << cameraPos.z << endl;
 		break;
 	case 'd':
 		// move camera right
 		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp));
+		std::cout << "camera pos: " << cameraPos.x << ", " << cameraPos.y << ", " << cameraPos.z << endl;
 		break;
 
 		// inverse kinematics
@@ -468,7 +515,7 @@ void keypress(unsigned char key, int x, int y) {
 		break;
 
 	case 'c':
-		ComputeCCD(target_pos.x, target_pos.y);
+		angles = ComputeCCD(target_pos.x, target_pos.y);
 		a_soln = false;
 		ccd = true;
 		break;
