@@ -32,10 +32,10 @@ MESH TO LOAD
 ----------------------------------------------------------------------------*/
 // this mesh is a dae file format but you should be able to use any other format too, obj is typically what is used
 // put the mesh in your project directory, or provide a filepath for it here
-#define ARM "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/arm.obj"
-#define BODY "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/body.obj"
-#define BALL "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/ball.obj"
-#define JOINT "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/joint.obj"
+#define ARM "U:/animation_proj/Project1/Project1/cone.obj"
+#define BODY "U:/animation_proj/Project1/Project1/body.obj"
+#define BALL "U:/animation_proj/Project1/Project1/ball.obj"
+#define JOINT "U:/animation_proj/Project1/Project1/joint.obj"
 /*----------------------------------------------------------------------------
 ----------------------------------------------------------------------------*/
 
@@ -63,7 +63,10 @@ GLfloat rotate_y = 0.0f;
 
 // arm rotation
 glm::vec2 arm_angles;
-int arm_length = 3;
+float arm_length = 2.708;
+
+float cone_length = 2.708;
+
 glm::vec3 target_pos(4.0f, 0.0f, 0.0f);
 
 // camera stuff
@@ -205,8 +208,8 @@ GLuint CompileShaders()
 	}
 
 	// Create two shader objects, one for the vertex, and one for the fragment shader
-	AddShader(shaderProgramID, "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/simpleVertexShader.txt", GL_VERTEX_SHADER);
-	AddShader(shaderProgramID, "C:/Users/aogra/source/repos/plane_rotation/plane_rotation/simpleFragmentShader.txt", GL_FRAGMENT_SHADER);
+	AddShader(shaderProgramID, "U:/animation_proj/Project1/Project1/simpleVertexShader.txt", GL_VERTEX_SHADER);
+	AddShader(shaderProgramID, "U:/animation_proj/Project1/Project1/simpleFragmentShader.txt", GL_FRAGMENT_SHADER);
 
 	GLint Success = 0;
 	GLchar ErrorLog[1024] = { '\0' };
@@ -304,21 +307,25 @@ glm::vec2 analytical_soln(glm::vec3 starting_pos) {
 	l1 = arm_length;
 	l2 = arm_length;
 
-	d = glm::sqrt((ex * ex) + (ey * ey));
+	cos2 = ((ex * ex) + (ey * ey) - (l1 * l1) - (l2 * l2)) / (2 * l1 * l2);
 
-	theta_t = glm::acos(ex / d);
+	if (cos2 >= -1.0 && cos2 <= 1.0) {
+		d = glm::sqrt((ex * ex) + (ey * ey));
 
-	theta1 = glm::acos(((l1 * l1) + (ex * ex) + (ey * ey) - (l2 * l2)) / (2 * l1 * d)) + theta_t;
-	std::cout << glm::degrees(theta1) << endl;
+		theta_t = glm::acos(ex / d);
 
-	//upper_arm_angle = theta1;
+		theta1 = glm::acos(((l1 * l1) + (ex * ex) + (ey * ey) - (l2 * l2)) / (2 * l1 * d)) + theta_t;
+		std::cout << glm::degrees(theta1) << endl;
 
-	theta2 = 3.14 - (((l1 * l1) + (l2 * l2) - (d * d)) / (2 * l1 * l2));
-	std::cout << glm::degrees(theta2) << endl;
+		//upper_arm_angle = theta1;
 
-	//lower_arm_angle = theta2;
+		theta2 = 3.14 - (((l1 * l1) + (l2 * l2) - (d * d)) / (2 * l1 * l2));
+		std::cout << glm::degrees(theta2) << endl;
 
-	return glm::vec2(theta1, theta2);
+		//lower_arm_angle = theta2;
+	}
+
+	return glm::vec2(glm::degrees(theta1), glm::degrees(theta2));
 }
 
 #pragma endregion IK
@@ -382,28 +389,28 @@ void display() {
 
 	// --------------------------------- UPPER JOINT --------------------------------------
 
-	glm::mat4 upper_j = glm::mat4(1.0f);
+	/*glm::mat4 upper_j = glm::mat4(1.0f);
 	upper_j = glm::rotate(upper_j, glm::degrees(arm_angles.x), glm::vec3(0.0f, 0.0f, 1.0f));
 
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(upper_j));
 	glBindVertexArray(vao4);
-	glDrawArrays(GL_TRIANGLES, 0, joint.mPointCount);
+	glDrawArrays(GL_TRIANGLES, 0, joint.mPointCount);*/
 
 	// --------------------------------- UPPER ARM --------------------------------------
 
 	glm::mat4 upper_arm = glm::mat4(1.0f);
-	upper_arm = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	//upper_arm = glm::rotate(upper_arm, glm::degrees(arm_angles.y), glm::vec3(0.0f, 0.0f, 1.0f));
+	//upper_arm = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	upper_arm = glm::rotate(upper_arm, glm::radians(arm_angles.x), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	glm::mat4 g1 = upper_j * upper_arm;
+	//glm::mat4 g1 = upper_j * upper_arm;
 
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(g1));
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(upper_arm));
 	glBindVertexArray(vao2);
 	glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
 
 	// --------------------------------- LOWER JOINT --------------------------------------
 
-	glm::mat4 lower_j = glm::mat4(1.0f);
+	/*glm::mat4 lower_j = glm::mat4(1.0f);
 	lower_j = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, 0.0f));
 	lower_j = glm::rotate(lower_j, glm::degrees(arm_angles.y), glm::vec3(0.0f, 0.0f, 1.0f));
 
@@ -411,18 +418,20 @@ void display() {
 
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(g2));
 	glBindVertexArray(vao4);
-	glDrawArrays(GL_TRIANGLES, 0, joint.mPointCount);
+	glDrawArrays(GL_TRIANGLES, 0, joint.mPointCount);*/
 
 	// --------------------------------- LOWER ARM --------------------------------------
 
 	glm::mat4 lower_arm = glm::mat4(1.0f);
-	lower_arm = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-	//lower_arm = glm::rotate(lower_arm, glm::degrees(arm_angles.y), glm::vec3(0.0f, 0.0f, 1.0f));
+	//lower_arm = glm::rotate(lower_arm, glm::radians(arm_angles.y), glm::vec3(0.0f, 0.0f, 1.0f));
+	lower_arm = glm::translate(glm::mat4(1.0f), glm::vec3(2.7f, 0.0f, 0.0f));
+	lower_arm = glm::rotate(lower_arm, glm::radians(arm_angles.y+90), glm::vec3(0.0f, 0.0f, 1.0f));
 
 	//glm::mat4 global4 = upper_j * upper_arm * lower_j * lower_arm;
-	glm::mat4 g3 = upper_j * upper_arm * lower_j * lower_arm;
+	//glm::mat4 g3 = upper_j * upper_arm * lower_j * lower_arm;
+	lower_arm = upper_arm * lower_arm;
 
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(g3));
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(lower_arm));
 	glBindVertexArray(vao2);
 	glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
 
