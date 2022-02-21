@@ -63,7 +63,7 @@ GLuint loc1, loc2, loc3;
 GLfloat rotate_y = 0.0f;
 
 // arm rotation
-glm::vec2 arm_angles;
+glm::vec2 arm_angles(90.0f, -90.0f);
 //float arm_length = 2.708;
 
 //float last_theta = 0;
@@ -80,8 +80,8 @@ glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 int projType = 0;
 float fov = 45.0f;
 
-
-
+bool a_soln = true;
+bool ccd = false;
 
 #pragma region MESH LOADING
 /*----------------------------------------------------------------------------
@@ -293,56 +293,6 @@ void generateObjectBufferMesh1(GLuint vao, ModelData mesh_data, GLuint programID
 }
 #pragma endregion VBO_FUNCTIONS
 
-//#pragma region IK
-//glm::vec2 analytical_soln(glm::vec3 starting_pos) {
-//
-//	float d = 0;
-//	float l1 = 0, l2 = 0;
-//	float ex = 0, ey = 0;
-//	float theta_t = 0, theta1 = 0, theta2 = 0;
-//
-//	float cos2 = 0, sin2 = 0, tan1 = 0;
-//	float angle1 = 0, angle2 = 0;
-//
-//	ex = starting_pos.x;
-//	ey = starting_pos.y;
-//
-//	l1 = arm_length;
-//	l2 = arm_length;
-//
-//	cos2 = ((ex * ex) + (ey * ey) - (l1 * l1) - (l2 * l2)) / (2 * l1 * l2);
-//
-//	if (cos2 >= -1.0 && cos2 <= 1.0) {
-//		d = glm::sqrt((ex * ex) + (ey * ey));
-//
-//		theta_t = glm::acos(ex / d);
-//
-//		theta1 = glm::acos(((l1 * l1) + (ex * ex) + (ey * ey) - (l2 * l2)) / (2 * l1 * d)) + theta_t;
-//		std::cout << "Theta 1: " << glm::degrees(theta1) << endl;
-//
-//		//upper_arm_angle = theta1;
-//
-//		theta2 = 3.14 - (((l1 * l1) + (l2 * l2) - (d * d)) / (2 * l1 * l2));
-//		std::cout << "Theta 2: " << glm::degrees(theta2) << endl;
-//
-//		//lower_arm_angle = theta2;
-//	}
-//
-//	else {
-//		
-//		theta1 = last_theta;
-//		theta2 = theta1 - glm::radians(150.0f);
-//		std::cout << "Other Theta 1: " << glm::degrees(theta1) << endl;
-//		std::cout << "Other Theta 2: " << glm::degrees(theta2) << endl;
-//	}
-//
-//	last_theta = theta1;
-//
-//	return glm::vec2(glm::degrees(theta1), glm::degrees(theta2));
-//}
-//
-//#pragma endregion IK
-
 
 void display() {
 
@@ -369,27 +319,12 @@ void display() {
 	glm::mat4 view = glm::mat4(1.0f);
 	view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
-	// --------------------------------- BODY --------------------------------------
-
 	glUseProgram(shaderProgramID);
 
 	//Declare your uniform variables that will be used in your shader
 	int matrix_location = glGetUniformLocation(shaderProgramID, "model");
 	int view_mat_location = glGetUniformLocation(shaderProgramID, "view");
 	int proj_mat_location = glGetUniformLocation(shaderProgramID, "proj");
-
-	glm::mat4 body_model = glm::mat4(1.0f);
-	body_model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -15.0f));
-
-	glm::mat4 global0 = body_model;
-
-	// update uniforms & draw
-	glUniformMatrix4fv(proj_mat_location, 1, GL_FALSE, glm::value_ptr(persp_proj));
-	glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, glm::value_ptr(view));
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global0));
-
-	glBindVertexArray(vao1);
-	//glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
 
 	// --------------------------------- BALL --------------------------------------
 
@@ -400,48 +335,36 @@ void display() {
 	glBindVertexArray(vao3);
 	glDrawArrays(GL_TRIANGLES, 0, ball.mPointCount);
 
-	// --------------------------------- UPPER JOINT --------------------------------------
+	// --------------------------------- BODY --------------------------------------
 
-	/*glm::mat4 upper_j = glm::mat4(1.0f);
-	upper_j = glm::rotate(upper_j, glm::degrees(arm_angles.x), glm::vec3(0.0f, 0.0f, 1.0f));
+	glm::mat4 body_model = glm::mat4(1.0f);
+	body_model = glm::translate(glm::mat4(1.0f), glm::vec3(-0.5f, -1.0f, 0.0f));
+	body_model = glm::rotate(body_model, glm::radians(-90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(upper_j));
-	glBindVertexArray(vao4);
-	glDrawArrays(GL_TRIANGLES, 0, joint.mPointCount);*/
+	glm::mat4 global0 = body_model;
 
+	// update uniforms & draw
+	glUniformMatrix4fv(proj_mat_location, 1, GL_FALSE, glm::value_ptr(persp_proj));
+	glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, glm::value_ptr(view));
+	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global0));
+
+	glBindVertexArray(vao1);
+	glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
+	
 	// --------------------------------- UPPER ARM --------------------------------------
 
 	glm::mat4 upper_arm = glm::mat4(1.0f);
-	//upper_arm = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	upper_arm = glm::rotate(upper_arm, glm::radians(arm_angles.x), glm::vec3(0.0f, 0.0f, 1.0f));
-
-	//glm::mat4 g1 = upper_j * upper_arm;
 
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(upper_arm));
 	glBindVertexArray(vao2);
 	glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
 
-	// --------------------------------- LOWER JOINT --------------------------------------
-
-	/*glm::mat4 lower_j = glm::mat4(1.0f);
-	lower_j = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, 0.0f));
-	lower_j = glm::rotate(lower_j, glm::degrees(arm_angles.y), glm::vec3(0.0f, 0.0f, 1.0f));
-
-	glm::mat4 g2 = upper_j * upper_arm * lower_j;
-
-	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(g2));
-	glBindVertexArray(vao4);
-	glDrawArrays(GL_TRIANGLES, 0, joint.mPointCount);*/
-
 	// --------------------------------- LOWER ARM --------------------------------------
 
 	glm::mat4 lower_arm = glm::mat4(1.0f);
-	//lower_arm = glm::rotate(lower_arm, glm::radians(arm_angles.y), glm::vec3(0.0f, 0.0f, 1.0f));
 	lower_arm = glm::translate(glm::mat4(1.0f), glm::vec3(2.7f, 0.0f, 0.0f));
 	lower_arm = glm::rotate(lower_arm, glm::radians(arm_angles.y + 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-
-	//glm::mat4 global4 = upper_j * upper_arm * lower_j * lower_arm;
-	//glm::mat4 g3 = upper_j * upper_arm * lower_j * lower_arm;
 	lower_arm = upper_arm * lower_arm;
 
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(lower_arm));
@@ -540,9 +463,31 @@ void keypress(unsigned char key, int x, int y) {
 
 	case 'f':
 		arm_angles = analytical_soln(target_pos);
+		a_soln = true;
+		ccd = false;
 		break;
+
+	case 'c':
+		ComputeCCD(target_pos.x, target_pos.y);
+		a_soln = false;
+		ccd = true;
+		break;
+
 	}
 }
+
+void specialKeys(int key, int x, int y) {
+	
+	if (a_soln) {
+		arm_angles = analytical_soln(target_pos);
+	}
+
+	else if (ccd) {
+		ComputeCCD(target_pos.x, target_pos.y);
+	}
+
+}
+
 
 int main(int argc, char** argv) {
 
@@ -556,6 +501,7 @@ int main(int argc, char** argv) {
 	glutDisplayFunc(display);
 	glutIdleFunc(updateScene);
 	glutKeyboardFunc(keypress);
+	//glutSpecialFunc(specialKeys);
 
 	// A call to glewInit() must be done after glut is initialized!
 	GLenum res = glewInit();
