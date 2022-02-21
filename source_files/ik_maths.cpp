@@ -183,6 +183,7 @@ glm::vec3 ComputeCCD(int x, int y) {
 		link--;
 	}
 
+	std::cout << "Angles: " << angles.x << ", " << angles.y << ", " << angles.z << endl;	
 	return(angles);
 }
 
