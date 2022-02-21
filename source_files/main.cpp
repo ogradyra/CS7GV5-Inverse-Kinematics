@@ -65,6 +65,8 @@ GLfloat rotate_y = 0.0f;
 glm::vec2 arm_angles;
 float arm_length = 2.708;
 
+float last_theta = 0;
+
 float cone_length = 2.708;
 
 glm::vec3 target_pos(4.0f, 0.0f, 0.0f);
@@ -315,15 +317,25 @@ glm::vec2 analytical_soln(glm::vec3 starting_pos) {
 		theta_t = glm::acos(ex / d);
 
 		theta1 = glm::acos(((l1 * l1) + (ex * ex) + (ey * ey) - (l2 * l2)) / (2 * l1 * d)) + theta_t;
-		std::cout << glm::degrees(theta1) << endl;
+		std::cout << "Theta 1: " << glm::degrees(theta1) << endl;
 
 		//upper_arm_angle = theta1;
 
 		theta2 = 3.14 - (((l1 * l1) + (l2 * l2) - (d * d)) / (2 * l1 * l2));
-		std::cout << glm::degrees(theta2) << endl;
+		std::cout << "Theta 2: " << glm::degrees(theta2) << endl;
 
 		//lower_arm_angle = theta2;
 	}
+
+	else {
+		
+		theta1 = last_theta;
+		theta2 = theta1 - glm::radians(150.0f);
+		std::cout << "Other Theta 1: " << glm::degrees(theta1) << endl;
+		std::cout << "Other Theta 2: " << glm::degrees(theta2) << endl;
+	}
+
+	last_theta = theta1;
 
 	return glm::vec2(glm::degrees(theta1), glm::degrees(theta2));
 }
@@ -425,7 +437,7 @@ void display() {
 	glm::mat4 lower_arm = glm::mat4(1.0f);
 	//lower_arm = glm::rotate(lower_arm, glm::radians(arm_angles.y), glm::vec3(0.0f, 0.0f, 1.0f));
 	lower_arm = glm::translate(glm::mat4(1.0f), glm::vec3(2.7f, 0.0f, 0.0f));
-	lower_arm = glm::rotate(lower_arm, glm::radians(arm_angles.y+90), glm::vec3(0.0f, 0.0f, 1.0f));
+	lower_arm = glm::rotate(lower_arm, glm::radians(arm_angles.y + 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
 	//glm::mat4 global4 = upper_j * upper_arm * lower_j * lower_arm;
 	//glm::mat4 g3 = upper_j * upper_arm * lower_j * lower_arm;
