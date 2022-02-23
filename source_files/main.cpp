@@ -63,7 +63,7 @@ GLuint loc1, loc2, loc3;
 GLfloat rotate_y = 0.0f;
 
 // camera stuff
-glm::vec3 cameraPos = glm::vec3(0.0f, 2.0f, 16.0f);
+glm::vec3 cameraPos = glm::vec3(2.0f, 0.0f, 16.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -80,19 +80,11 @@ glm::vec2 arm_angles(90.0f, -90.0f);
 
 glm::vec3 start_pos(8.0f, 0.0f, 0.0f);
 
-float angles[3];
+float angles[3] = { 0.0f, 0.0f, 0.0f };
 glm::vec3 root_pos = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 end_pos(8.0f, 0.0f, 0.0f);
-glm::vec3 links[2];
+glm::vec3 links[3] = { glm::vec3(5.4f, 0.0f, 0.0f), glm::vec3(2.7f, 0.0f, 0.0f), root_pos };
 int link = 2;
-
-void set_up_links() {
-
-	links[0] = glm::vec3(2.7f, 0.0f, 0.0f);
-	links[1] = glm::vec3(5.4f, 0.0f, 0.0f);
-
-}
-
 
 #pragma region MESH LOADING
 /*----------------------------------------------------------------------------
@@ -364,18 +356,26 @@ float calc_angle(glm::vec3 target_pos, int i) {
 	float angle;
 
 	v0 = target_pos - links[i];
+	//std::cout << "links: " << links[i].x << ", " << links[i].y << ", " << links[i].z << endl;
+	//std::cout << "v0: " << v0.x << ", " << v0.y << ", " << v0.z << endl;
 	v1 = end_pos - links[i];
+	//std::cout << "v1: " << v1.x << ", " << v1.y << ", " << v1.z << endl;
 
-	end_length = glm::distance(end_pos, links[1]);
+	end_length = glm::distance(end_pos, links[i]);
+	std::cout << "End Length: " << end_length << endl;
 
-	mag_v0 = glm::sqrt(glm::exp2(v0.x) + glm::exp2(v0.y) + glm::exp2(v0.z));
-	mag_v1 = glm::sqrt(glm::exp2(v1.x) + glm::exp2(v1.y) + glm::exp2(v1.z));
+	mag_v0 = glm::sqrt(glm::pow(v0.x, 2) + glm::pow(v0.y, 2) + glm::pow(v0.z, 2));
+	//std::cout << " Mag v0: " << mag_v0 << endl;
+	mag_v1 = glm::sqrt(glm::pow(v1.x, 2) + glm::pow(v1.y, 2) + glm::pow(v1.z, 2));
+	//std::cout << " Mag v1: " << mag_v1 << endl;
 
 	norm_vec = v0 / mag_v0;
-	end_pos = v0 + (end_length * norm_vec);
+	//std::cout << "Norm Vec: " << norm_vec.x << ", " << norm_vec.y << ", " << norm_vec.z << endl;
+	end_pos = links[0] + (end_length * norm_vec);
+	std::cout << "End Pos: " << end_pos.x << ", " << end_pos.y << ", " << end_pos.z << endl;
 
 	angle = glm::degrees(glm::acos(glm::dot(v0, v1) / (mag_v0 * mag_v1)));
-	std::cout << "Link 1 Angle: " << angles[i] << endl;
+	//glm::degrees(glm::acos(glm::dot(v0, v1) / (mag_v0 * mag_v1)));
 
 	return(angle);
 
@@ -383,18 +383,23 @@ float calc_angle(glm::vec3 target_pos, int i) {
 
 void CCD() {
 
-	float target_dist;
+	float target_dist = glm::distance(start_pos, end_pos);;
 	int i = 0;
 
-	target_dist = glm::distance(start_pos, end_pos);
+	//target_dist = glm::distance(start_pos, end_pos);
+	//std::cout << "target_dist: " << target_dist << endl;
 
-	while (target_dist > 0.01 && i < 2){
+	while (target_dist > 0.5 && i < 3){
 
 		angles[i] = calc_angle(start_pos, i);
+
+		target_dist = glm::distance(start_pos, end_pos);
+		std::cout << "Target Dist: " << target_dist << endl;
 		i++;
 
 	}
 
+	std::cout << "Angles: " << angles[0] << ", " << angles[1] << ", " << angles[2] << endl;
 }
 
 #pragma endregion CCD
@@ -484,6 +489,7 @@ void display() {
 		// --------------------------------- LINK 1 --------------------------------------
 
 		glm::mat4 link1 = glm::mat4(1.0f);
+		//link1 = glm::translate(link1, glm::vec3(10.0f, 10.0f, 0.0f));
 		link1 = glm::rotate(link1, glm::radians(angles[2]), glm::vec3(0.0f, 0.0f, 1.0f));
 
 		glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(link1));
@@ -540,7 +546,6 @@ void updateScene() {
 void init()
 {
 		
-	set_up_links();
 	// Set up the shaders
 	GLuint shaderProgramID = CompileShaders();
 	// load mesh into a vertex buffer array
