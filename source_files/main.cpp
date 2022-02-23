@@ -389,7 +389,7 @@ void CCD() {
 	//target_dist = glm::distance(start_pos, end_pos);
 	//std::cout << "target_dist: " << target_dist << endl;
 
-	while (target_dist > 0.5 && i < 3){
+	while (target_dist > 0.05 && i < 3){
 
 		angles[i] = calc_angle(start_pos, i);
 
