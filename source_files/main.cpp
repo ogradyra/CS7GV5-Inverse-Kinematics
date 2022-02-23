@@ -21,7 +21,7 @@
 
 // Project includes
 #include "maths_funcs.h"
-#include "ik_maths.h"
+//#include "ik_maths.h"
 
 // GLM includes
 #include "glm/glm.hpp"
@@ -62,18 +62,6 @@ int height = 600;
 GLuint loc1, loc2, loc3;
 GLfloat rotate_y = 0.0f;
 
-// arm rotation
-glm::vec2 arm_angles(90.0f, -90.0f);
-glm::vec3 angles;
-
-//float arm_length = 2.708;
-
-//float last_theta = 0;
-
-float cone_length = 2.708;
-
-glm::vec3 target_pos(4.0f, 0.0f, 0.0f);
-
 // camera stuff
 glm::vec3 cameraPos = glm::vec3(0.0f, 2.0f, 16.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
@@ -82,8 +70,29 @@ glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 int projType = 0;
 float fov = 45.0f;
 
+// inverse kinematics
 bool a_soln = true;
 bool ccd = false;
+
+float arm_length = 2.708;
+float last_theta = 0;
+glm::vec2 arm_angles(90.0f, -90.0f);
+
+glm::vec3 start_pos(8.0f, 0.0f, 0.0f);
+
+float angles[3];
+glm::vec3 root_pos = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 end_pos(8.0f, 0.0f, 0.0f);
+glm::vec3 links[2];
+int link = 2;
+
+void set_up_links() {
+
+	links[0] = glm::vec3(2.7f, 0.0f, 0.0f);
+	links[1] = glm::vec3(5.4f, 0.0f, 0.0f);
+
+}
+
 
 #pragma region MESH LOADING
 /*----------------------------------------------------------------------------
@@ -295,6 +304,100 @@ void generateObjectBufferMesh1(GLuint vao, ModelData mesh_data, GLuint programID
 }
 #pragma endregion VBO_FUNCTIONS
 
+#pragma region SIMPLE_IK
+glm::vec2 analytical_soln(glm::vec3 target_pos) {
+
+	float d = 0;
+	float l1 = 0, l2 = 0;
+	float ex = 0, ey = 0;
+	float theta_t = 0, theta1 = 0, theta2 = 0;
+
+	float cos2 = 0, sin2 = 0, tan1 = 0;
+	float angle1 = 0, angle2 = 0;
+
+	ex = target_pos.x;
+	ey = target_pos.y;
+
+	l1 = arm_length;
+	l2 = arm_length;
+
+	cos2 = ((ex * ex) + (ey * ey) - (l1 * l1) - (l2 * l2)) / (2 * l1 * l2);
+
+	if (cos2 >= -1.0 && cos2 <= 1.0) {
+		d = glm::sqrt((ex * ex) + (ey * ey));
+
+		theta_t = glm::acos(ex / d);
+
+		theta1 = glm::acos(((l1 * l1) + (ex * ex) + (ey * ey) - (l2 * l2)) / (2 * l1 * d)) + theta_t;
+		std::cout << "Theta 1: " << glm::degrees(theta1) << endl;
+
+		//upper_arm_angle = theta1;
+
+		theta2 = 3.14 - (((l1 * l1) + (l2 * l2) - (d * d)) / (2 * l1 * l2));
+		std::cout << "Theta 2: " << glm::degrees(theta2) << endl;
+
+		//lower_arm_angle = theta2;
+	}
+
+	else {
+
+		theta1 = last_theta;
+		theta2 = theta1 - glm::radians(150.0f);
+		std::cout << "Other Theta 1: " << glm::degrees(theta1) << endl;
+		std::cout << "Other Theta 2: " << glm::degrees(theta2) << endl;
+	}
+
+	last_theta = theta1;
+
+	return glm::vec2(glm::degrees(theta1), glm::degrees(theta2));
+}
+
+#pragma endregion SIMPLE_IK
+
+#pragma region CCD
+
+float calc_angle(glm::vec3 target_pos, int i) {
+
+	glm::vec3 v0, v1, norm_vec;
+	float mag_v0, mag_v1;
+	float end_length;
+	float angle;
+
+	v0 = target_pos - links[i];
+	v1 = end_pos - links[i];
+
+	end_length = glm::distance(end_pos, links[1]);
+
+	mag_v0 = glm::sqrt(glm::exp2(v0.x) + glm::exp2(v0.y) + glm::exp2(v0.z));
+	mag_v1 = glm::sqrt(glm::exp2(v1.x) + glm::exp2(v1.y) + glm::exp2(v1.z));
+
+	norm_vec = v0 / mag_v0;
+	end_pos = v0 + (end_length * norm_vec);
+
+	angle = glm::degrees(glm::acos(glm::dot(v0, v1) / (mag_v0 * mag_v1)));
+	std::cout << "Link 1 Angle: " << angles[i] << endl;
+
+	return(angle);
+
+}
+
+void CCD() {
+
+	float target_dist;
+	int i = 0;
+
+	target_dist = glm::distance(start_pos, end_pos);
+
+	while (target_dist > 0.01 && i < 2){
+
+		angles[i] = calc_angle(start_pos, i);
+		i++;
+
+	}
+
+}
+
+#pragma endregion CCD
 
 void display() {
 
@@ -331,7 +434,7 @@ void display() {
 	// --------------------------------- BALL --------------------------------------
 
 	glm::mat4 ball_model = glm::mat4(1.0f);
-	ball_model = glm::translate(glm::mat4(1.0f), target_pos);
+	ball_model = glm::translate(glm::mat4(1.0f), start_pos);
 
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(ball_model));
 	glBindVertexArray(vao3);
@@ -351,7 +454,7 @@ void display() {
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global0));
 
 	glBindVertexArray(vao1);
-	glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
+	//glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
 	
 	if (a_soln) {
 
@@ -381,7 +484,7 @@ void display() {
 		// --------------------------------- LINK 1 --------------------------------------
 
 		glm::mat4 link1 = glm::mat4(1.0f);
-		link1 = glm::rotate(link1, glm::radians(angles[0]), glm::vec3(0.0f, 0.0f, 1.0f));
+		link1 = glm::rotate(link1, glm::radians(angles[2]), glm::vec3(0.0f, 0.0f, 1.0f));
 
 		glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(link1));
 		glBindVertexArray(vao2);
@@ -391,7 +494,7 @@ void display() {
 
 		glm::mat4 link2 = glm::mat4(1.0f);
 		link2 = glm::translate(glm::mat4(1.0f), glm::vec3(2.7f, 0.0f, 0.0f));
-		link2 = glm::rotate(link2, glm::radians(angles.y), glm::vec3(0.0f, 0.0f, 1.0f));
+		link2 = glm::rotate(link2, glm::radians(angles[1]), glm::vec3(0.0f, 0.0f, 1.0f));
 		link2 = link1 * link2;
 
 		glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(link2));
@@ -402,7 +505,7 @@ void display() {
 
 		glm::mat4 link3 = glm::mat4(1.0f);
 		link3 = glm::translate(glm::mat4(1.0f), glm::vec3(2.7f, 0.0f, 0.0f));
-		link3 = glm::rotate(link3, glm::radians(angles.z), glm::vec3(0.0f, 0.0f, 1.0f));
+		link3 = glm::rotate(link3, glm::radians(angles[0]), glm::vec3(0.0f, 0.0f, 1.0f));
 		link3 = link2 * link3;
 
 		glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(link3));
@@ -436,6 +539,8 @@ void updateScene() {
 
 void init()
 {
+		
+	set_up_links();
 	// Set up the shaders
 	GLuint shaderProgramID = CompileShaders();
 	// load mesh into a vertex buffer array
@@ -496,43 +601,31 @@ void keypress(unsigned char key, int x, int y) {
 		// inverse kinematics
 
 	case 'o':
-		target_pos.x += 0.5f;
+		start_pos.x += 0.5f;
 		break;
 	case 'p':
-		target_pos.x -= 0.5f;
+		start_pos.x -= 0.5f;
 		break;
 	case 'l':
-		target_pos.y += 0.5f;
+		start_pos.y += 0.5f;
 		break;
 	case 'k':
-		target_pos.y -= 0.5f;
+		start_pos.y -= 0.5f;
 		break;
 
 	case 'f':
-		arm_angles = analytical_soln(target_pos);
+		arm_angles = analytical_soln(start_pos);
 		a_soln = true;
 		ccd = false;
 		break;
 
 	case 'c':
-		angles = ComputeCCD(target_pos.x, target_pos.y);
+		CCD();
 		a_soln = false;
 		ccd = true;
 		break;
 
 	}
-}
-
-void specialKeys(int key, int x, int y) {
-	
-	if (a_soln) {
-		arm_angles = analytical_soln(target_pos);
-	}
-
-	else if (ccd) {
-		ComputeCCD(target_pos.x, target_pos.y);
-	}
-
 }
 
 
