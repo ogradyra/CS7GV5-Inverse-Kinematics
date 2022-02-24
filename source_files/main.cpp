@@ -60,7 +60,6 @@ int width = 800;
 int height = 600;
 
 GLuint loc1, loc2, loc3;
-GLfloat rotate_y = 0.0f;
 
 // camera stuff
 glm::vec3 cameraPos = glm::vec3(2.0f, 0.0f, 16.0f);
@@ -85,6 +84,12 @@ glm::vec3 root_pos = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 end_pos(8.0f, 0.0f, 0.0f);
 glm::vec3 links[3] = { glm::vec3(5.4f, 0.0f, 0.0f), glm::vec3(2.7f, 0.0f, 0.0f), root_pos };
 int link = 2;
+
+GLfloat rotate_l1, rotate_l2 = 0.0f;
+glm::vec2 points[4] = { glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 0.0f) };
+glm::vec3 ball_point = glm::vec3(0.0f, 5.0f, 0.0f);
+float t = 0;
+int tcount = 0;
 
 #pragma region MESH LOADING
 /*----------------------------------------------------------------------------
@@ -404,6 +409,34 @@ void CCD() {
 
 #pragma endregion CCD
 
+#pragma region SPLINES
+
+glm::vec3 calc_spline_point(float t) {
+
+	int p0, p1, p2, p3;
+	glm::vec3 new_t(0.0f, 0.0f, 0.0f);
+
+	p1 = (int)t + 1;
+	p2 = p1 + 1;
+	p3 = p2 + 1;
+	p0 = p1 - 1;
+
+	float tt = t * t; 
+	float ttt = t * t * t;
+
+	float q1 = -ttt + 2.0 * tt - t;
+	float q2 = 3.0f * ttt - 5.0f * tt + 2.0f;
+	float q3 = -3.0f * ttt + 4.0f * tt + t;
+	float q4 = ttt - t;
+
+	new_t.x = points[p0].x * q1 + points[p1].x * q2 + points[p2].x * q3 + points[p3].x * q4;
+	new_t.y = points[p0].y * q1 + points[p1].y * q2 + points[p2].y * q3 + points[p3].y * q4;
+
+	return new_t;
+}
+
+#pragma endregion SPLINES
+
 void display() {
 
 	// tell GL to only draw onto a pixel if the shape is closer to the viewer
@@ -439,7 +472,7 @@ void display() {
 	// --------------------------------- BALL --------------------------------------
 
 	glm::mat4 ball_model = glm::mat4(1.0f);
-	ball_model = glm::translate(glm::mat4(1.0f), start_pos);
+	ball_model = glm::translate(glm::mat4(1.0f), ball_point);
 
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(ball_model));
 	glBindVertexArray(vao3);
@@ -470,7 +503,7 @@ void display() {
 
 		glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(upper_arm));
 		glBindVertexArray(vao2);
-		glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
+		//glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
 
 		// --------------------------------- LOWER ARM --------------------------------------
 
@@ -481,7 +514,7 @@ void display() {
 
 		glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(lower_arm));
 		glBindVertexArray(vao2);
-		glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
+		//glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
 	}
 
 	else if (ccd) {
@@ -527,16 +560,21 @@ void display() {
 
 void updateScene() {
 
-	static DWORD last_time = 0;
+	/*static DWORD last_time = 0;
 	DWORD curr_time = timeGetTime();
 	if (last_time == 0)
 		last_time = curr_time;
 	float delta = (curr_time - last_time) * 0.001f;
-	last_time = curr_time;
+	last_time = curr_time;*/
 
-	// Rotate the model slowly around the y axis at 20 degrees per second
-	rotate_y += 20.0f * delta;
-	rotate_y = fmodf(rotate_y, 360.0f);
+	if (tcount == 100) {
+
+		ball_point = calc_spline_point(t);
+		t += 0.01f;
+		tcount = 0;
+	}
+
+	tcount++;
 
 	// Draw the next frame
 	glutPostRedisplay();
@@ -607,25 +645,72 @@ void keypress(unsigned char key, int x, int y) {
 
 	case 'o':
 		start_pos.x += 0.5f;
+
+		if (a_soln) {
+
+			arm_angles = analytical_soln(start_pos);
+		}
+
+		else if (CCD) {
+
+			CCD();
+		}
+
 		break;
+
 	case 'p':
 		start_pos.x -= 0.5f;
+
+		if (a_soln) {
+
+			arm_angles = analytical_soln(start_pos);
+		}
+
+		else if (CCD) {
+
+			CCD();
+		}
+
 		break;
+
 	case 'l':
 		start_pos.y += 0.5f;
+
+		if (a_soln) {
+
+			arm_angles = analytical_soln(start_pos);
+		}
+
+		else if (CCD) {
+
+			CCD();
+		}
+
 		break;
+
 	case 'k':
 		start_pos.y -= 0.5f;
+
+		if (a_soln) {
+
+			arm_angles = analytical_soln(start_pos);
+		}
+
+		else if (CCD) {
+
+			CCD();
+		}
+
 		break;
 
 	case 'f':
-		arm_angles = analytical_soln(start_pos);
+		//arm_angles = analytical_soln(start_pos);
 		a_soln = true;
 		ccd = false;
 		break;
 
 	case 'c':
-		CCD();
+		//CCD();
 		a_soln = false;
 		ccd = true;
 		break;
