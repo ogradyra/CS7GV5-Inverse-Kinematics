@@ -75,7 +75,7 @@ bool ccd = false;
 
 float arm_length = 2.708;
 float last_theta = 0;
-glm::vec2 arm_angles(90.0f, -90.0f);
+glm::vec2 arm_angles(90.0f, 0.0f);
 
 glm::vec3 start_pos(8.0f, 0.0f, 0.0f);
 
@@ -87,9 +87,16 @@ int link = 2;
 
 GLfloat rotate_l1, rotate_l2 = 0.0f;
 glm::vec2 points[4] = { glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec2(0.0f, 0.0f) };
-glm::vec3 ball_point = glm::vec3(0.0f, 5.0f, 0.0f);
 float t = 0;
 int tcount = 0;
+
+glm::vec3 spline_point(0.0f, 0.0f, 0.0f);
+glm::vec3 ctrl_points[3] = { glm::vec3(-2.0f, 4.0f, 0.0f), glm::vec3(0.0f, 6.0f, 0.0f), glm::vec3(2.0f, 4.0f, 0.0f) };
+int i = 0;
+int ctrl_count = 0;
+
+float tx = 0.0f;
+float ty = 2.0f;
 
 #pragma region MESH LOADING
 /*----------------------------------------------------------------------------
@@ -309,6 +316,8 @@ glm::vec2 analytical_soln(glm::vec3 target_pos) {
 	float ex = 0, ey = 0;
 	float theta_t = 0, theta1 = 0, theta2 = 0;
 
+	float angle = 0;
+
 	float cos2 = 0, sin2 = 0, tan1 = 0;
 	float angle1 = 0, angle2 = 0;
 
@@ -321,6 +330,7 @@ glm::vec2 analytical_soln(glm::vec3 target_pos) {
 	cos2 = ((ex * ex) + (ey * ey) - (l1 * l1) - (l2 * l2)) / (2 * l1 * l2);
 
 	if (cos2 >= -1.0 && cos2 <= 1.0) {
+
 		d = glm::sqrt((ex * ex) + (ey * ey));
 
 		theta_t = glm::acos(ex / d);
@@ -330,18 +340,21 @@ glm::vec2 analytical_soln(glm::vec3 target_pos) {
 
 		//upper_arm_angle = theta1;
 
-		theta2 = 3.14 - (((l1 * l1) + (l2 * l2) - (d * d)) / (2 * l1 * l2));
+		theta2 = -1.0f * (glm::radians(180.0f) - glm::acos(((l1 * l1) + (l2 * l2) - (d * d)) / (2 * l1 * l2)));
 		std::cout << "Theta 2: " << glm::degrees(theta2) << endl;
 
+		std::cout << "Start Pos: " << start_pos.x << ", " << start_pos.y << endl;
 		//lower_arm_angle = theta2;
 	}
 
 	else {
 
-		theta1 = last_theta;
-		theta2 = theta1 - glm::radians(150.0f);
-		std::cout << "Other Theta 1: " << glm::degrees(theta1) << endl;
-		std::cout << "Other Theta 2: " << glm::degrees(theta2) << endl;
+		angle = glm::tan(start_pos.y/start_pos.x);
+		theta1 = angle;
+		theta2 = 0.0f;
+
+		//std::cout << "Other Theta 1: " << glm::degrees(theta1) << endl;
+		//std::cout << "Other Theta 2: " << glm::degrees(theta2) << endl;
 	}
 
 	last_theta = theta1;
@@ -394,7 +407,7 @@ void CCD() {
 	//target_dist = glm::distance(start_pos, end_pos);
 	//std::cout << "target_dist: " << target_dist << endl;
 
-	while (target_dist > 0.05 && i < 3){
+	while (target_dist > 0.05 && i < 3) {
 
 		angles[i] = calc_angle(start_pos, i);
 
@@ -411,17 +424,19 @@ void CCD() {
 
 #pragma region SPLINES
 
-glm::vec3 calc_spline_point(float t) {
+glm::vec2 calc_spline_point(float t) {
 
 	int p0, p1, p2, p3;
-	glm::vec3 new_t(0.0f, 0.0f, 0.0f);
+	glm::vec2 new_t(0.0f, 0.0f);
 
 	p1 = (int)t + 1;
 	p2 = p1 + 1;
 	p3 = p2 + 1;
 	p0 = p1 - 1;
 
-	float tt = t * t; 
+	t = t - (int)t;
+
+	float tt = t * t;
 	float ttt = t * t * t;
 
 	float q1 = -ttt + 2.0 * tt - t;
@@ -429,8 +444,8 @@ glm::vec3 calc_spline_point(float t) {
 	float q3 = -3.0f * ttt + 4.0f * tt + t;
 	float q4 = ttt - t;
 
-	new_t.x = points[p0].x * q1 + points[p1].x * q2 + points[p2].x * q3 + points[p3].x * q4;
-	new_t.y = points[p0].y * q1 + points[p1].y * q2 + points[p2].y * q3 + points[p3].y * q4;
+	new_t.x = 0.5f * (points[p0].x * q1 + points[p1].x * q2 + points[p2].x * q3 + points[p3].x * q4);
+	new_t.y = 0.5f * (points[p0].y * q1 + points[p1].y * q2 + points[p2].y * q3 + points[p3].y * q4);
 
 	return new_t;
 }
@@ -472,8 +487,9 @@ void display() {
 	// --------------------------------- BALL --------------------------------------
 
 	glm::mat4 ball_model = glm::mat4(1.0f);
-	ball_model = glm::translate(glm::mat4(1.0f), ball_point);
-
+	
+	ball_model = glm::translate(glm::mat4(1.0f), start_pos);
+		
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(ball_model));
 	glBindVertexArray(vao3);
 	glDrawArrays(GL_TRIANGLES, 0, ball.mPointCount);
@@ -493,7 +509,7 @@ void display() {
 
 	glBindVertexArray(vao1);
 	//glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
-	
+
 	if (a_soln) {
 
 		// --------------------------------- UPPER ARM --------------------------------------
@@ -503,18 +519,18 @@ void display() {
 
 		glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(upper_arm));
 		glBindVertexArray(vao2);
-		//glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
+		glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
 
 		// --------------------------------- LOWER ARM --------------------------------------
 
 		glm::mat4 lower_arm = glm::mat4(1.0f);
 		lower_arm = glm::translate(glm::mat4(1.0f), glm::vec3(2.7f, 0.0f, 0.0f));
-		lower_arm = glm::rotate(lower_arm, glm::radians(arm_angles.y + 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		lower_arm = glm::rotate(lower_arm, glm::radians(arm_angles.y), glm::vec3(0.0f, 0.0f, 1.0f));
 		lower_arm = upper_arm * lower_arm;
 
 		glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(lower_arm));
 		glBindVertexArray(vao2);
-		//glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
+		glDrawArrays(GL_TRIANGLES, 0, arm.mPointCount);
 	}
 
 	else if (ccd) {
@@ -567,14 +583,20 @@ void updateScene() {
 	float delta = (curr_time - last_time) * 0.001f;
 	last_time = curr_time;*/
 
-	if (tcount == 100) {
+	//if (0.0f <= tx <= 2.0f) {
+	//	
+	//	tx += 0.02f;
+	//	//ty += 0.02f;
+	//	std::cout << "tx: " << tx << endl;
+	//}
 
-		ball_point = calc_spline_point(t);
-		t += 0.01f;
-		tcount = 0;
-	}
 
-	tcount++;
+	//else {
+
+	//	tx = 2.0f;
+	//	//ty -= 2.0f;
+	//}
+
 
 	// Draw the next frame
 	glutPostRedisplay();
@@ -583,7 +605,7 @@ void updateScene() {
 
 void init()
 {
-		
+
 	// Set up the shaders
 	GLuint shaderProgramID = CompileShaders();
 	// load mesh into a vertex buffer array
