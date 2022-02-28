@@ -62,7 +62,7 @@ int height = 600;
 GLuint loc1, loc2, loc3;
 
 // camera stuff
-glm::vec3 cameraPos = glm::vec3(2.0f, 0.0f, 16.0f);
+glm::vec3 cameraPos = glm::vec3(1.0f, 2.0f, 16.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -70,19 +70,19 @@ int projType = 0;
 float fov = 45.0f;
 
 // inverse kinematics
-bool a_soln = true;
-bool ccd = false;
+bool a_soln = false;
+bool ccd = true;
 
 float arm_length = 2.708;
 float last_theta = 0;
 glm::vec2 arm_angles(90.0f, 0.0f);
 
-glm::vec3 start_pos(8.0f, 0.0f, 0.0f);
+glm::vec3 start_pos(7.0f, 5.0f, 0.0f);
 
-float angles[3] = { 0.0f, 0.0f, 0.0f };
+float angles[3] = { 0.0f, 0.0f, 90.0f };
 glm::vec3 root_pos = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 end_pos(8.0f, 0.0f, 0.0f);
-glm::vec3 links[3] = { glm::vec3(5.4f, 0.0f, 0.0f), glm::vec3(2.7f, 0.0f, 0.0f), root_pos };
+glm::vec3 end_pos(0.0f, 8.0f, 0.0f);
+glm::vec3 links[3] = { glm::vec3(0.0f, 5.4f, 0.0f), glm::vec3(0.0f, 2.7f, 0.0f), root_pos };
 int link = 2;
 
 GLfloat rotate_l1, rotate_l2 = 0.0f;
@@ -92,12 +92,15 @@ int tcount = 0;
 
 glm::vec3 spline_point(0.0f, 0.0f, 0.0f);
 glm::vec3 ctrl_points[3] = { glm::vec3(-2.0f, 4.0f, 0.0f), glm::vec3(0.0f, 6.0f, 0.0f), glm::vec3(2.0f, 4.0f, 0.0f) };
-int i = 0;
+//int i = 0;
 int ctrl_count = 0;
 
 float tx = 0.0f;
 float ty = 2.0f;
 
+bool first_time = true;
+
+float target_dist = glm::distance(start_pos, end_pos);
 #pragma region MESH LOADING
 /*----------------------------------------------------------------------------
 MESH LOADING FUNCTION
@@ -336,12 +339,12 @@ glm::vec2 analytical_soln(glm::vec3 target_pos) {
 		theta_t = glm::acos(ex / d);
 
 		theta1 = glm::acos(((l1 * l1) + (ex * ex) + (ey * ey) - (l2 * l2)) / (2 * l1 * d)) + theta_t;
-		std::cout << "Theta 1: " << glm::degrees(theta1) << endl;
+		//std::cout << "Theta 1: " << glm::degrees(theta1) << endl;
 
 		//upper_arm_angle = theta1;
 
 		theta2 = -1.0f * (glm::radians(180.0f) - glm::acos(((l1 * l1) + (l2 * l2) - (d * d)) / (2 * l1 * l2)));
-		std::cout << "Theta 2: " << glm::degrees(theta2) << endl;
+		//std::cout << "Theta 2: " << glm::degrees(theta2) << endl;
 
 		std::cout << "Start Pos: " << start_pos.x << ", " << start_pos.y << endl;
 		//lower_arm_angle = theta2;
@@ -349,12 +352,19 @@ glm::vec2 analytical_soln(glm::vec3 target_pos) {
 
 	else {
 
-		angle = glm::tan(start_pos.y/start_pos.x);
+		angle = glm::atan(start_pos.y/start_pos.x);
+
+		std::cout << "( " << start_pos.x << ", " << start_pos.y << " )" << endl;
 		theta1 = angle;
 		theta2 = 0.0f;
 
-		//std::cout << "Other Theta 1: " << glm::degrees(theta1) << endl;
-		//std::cout << "Other Theta 2: " << glm::degrees(theta2) << endl;
+		if (start_pos.x < root_pos.x) {
+
+			theta1 = angle + glm::radians(180.0f);
+		}
+
+		std::cout << "Other Theta 1: " << glm::degrees(theta1) << endl;
+		std::cout << "Other Theta 2: " << glm::degrees(theta2) << endl;
 	}
 
 	last_theta = theta1;
@@ -366,59 +376,114 @@ glm::vec2 analytical_soln(glm::vec3 target_pos) {
 
 #pragma region CCD
 
+glm::vec3 update_link(int i) {
+
+	glm::vec3 updated_link(0.0f, 0.0f, 0.0f);
+
+	updated_link.y = (glm::cos(angles[i]) * links[i].x) - (glm::sin(angles[i]) * links[i].y);
+	updated_link.x = (glm::sin(angles[i]) * links[i].x) + (glm::cos(angles[i]) * links[i].y);
+
+	if (0.0f >= angles[2] >= -90.0f) {
+
+		return(abs(updated_link));
+	}
+
+	else {
+
+		return (updated_link);
+	}
+
+}
+
 float calc_angle(glm::vec3 target_pos, int i) {
 
-	glm::vec3 v0, v1, norm_vec;
+	glm::vec3 v0, v1, v_dir, norm_vec;
 	float mag_v0, mag_v1;
 	float end_length;
 	float angle;
+	glm::vec3 cross(0.0f, 0.0f, 0.0f);
 
-	v0 = target_pos - links[i];
+	//std::cout << "Target Pos: " << target_pos.x << ", " << target_pos.y << ", " << target_pos.z << endl;
+
+	v0 = links[i] - target_pos;
 	//std::cout << "links: " << links[i].x << ", " << links[i].y << ", " << links[i].z << endl;
 	//std::cout << "v0: " << v0.x << ", " << v0.y << ", " << v0.z << endl;
-	v1 = end_pos - links[i];
-	//std::cout << "v1: " << v1.x << ", " << v1.y << ", " << v1.z << endl;
+	v1 = links[i] - end_pos;
+	v_dir = end_pos;
+
+	cross = glm::cross(v0, v1);
+
+	std::cout << "cross: " << cross.x << ", " << cross.y << ", " << cross.z << endl;
 
 	end_length = glm::distance(end_pos, links[i]);
-	std::cout << "End Length: " << end_length << endl;
+	//std::cout << "End Length: " << end_length << endl;
 
 	mag_v0 = glm::sqrt(glm::pow(v0.x, 2) + glm::pow(v0.y, 2) + glm::pow(v0.z, 2));
 	//std::cout << " Mag v0: " << mag_v0 << endl;
 	mag_v1 = glm::sqrt(glm::pow(v1.x, 2) + glm::pow(v1.y, 2) + glm::pow(v1.z, 2));
 	//std::cout << " Mag v1: " << mag_v1 << endl;
 
-	norm_vec = v0 / mag_v0;
+	norm_vec = glm::abs(v0 / mag_v0);
 	//std::cout << "Norm Vec: " << norm_vec.x << ", " << norm_vec.y << ", " << norm_vec.z << endl;
-	end_pos = links[0] + (end_length * norm_vec);
-	std::cout << "End Pos: " << end_pos.x << ", " << end_pos.y << ", " << end_pos.z << endl;
+	end_pos = links[i] + (end_length * norm_vec);
+	//std::cout << "End Pos: " << end_pos.x << ", " << end_pos.y << ", " << end_pos.z << endl;
 
 	angle = glm::degrees(glm::acos(glm::dot(v0, v1) / (mag_v0 * mag_v1)));
+	//std::cout << "angle: " << angle << endl;
+
+	std::cout << "v_dir, end_pos: " << v_dir.y << ", " << end_pos.y << endl;
+	if (cross.z > 0) {
+
+		angle *= -1.0f;
+
+	}
+
 	//glm::degrees(glm::acos(glm::dot(v0, v1) / (mag_v0 * mag_v1)));
 
 	return(angle);
 
 }
 
-void CCD() {
+//void CCD() {
+//
+//	float target_dist = glm::distance(start_pos, end_pos);;
+//	int i = 0;
+//
+//	//target_dist = glm::distance(start_pos, end_pos);
+//	//std::cout << "target_dist: " << target_dist << endl;
+//
+//	while (target_dist > 0.05 && i < 3) {
+//
+//		angles[i] = calc_angle(start_pos, i);
+//
+//		target_dist = glm::distance(start_pos, end_pos);
+//		std::cout << "target dist: " << target_dist << endl;
+//		i++;
+//
+//	}
+//
+//	links[0] = update_link(0);
+//	links[1] = update_link(1);
+//
+//	std::cout << "angles: " << angles[0] << ", " << angles[1] << ", " << angles[2] << endl;
+//}
 
-	float target_dist = glm::distance(start_pos, end_pos);;
-	int i = 0;
+void CCD(int n) {
 
-	//target_dist = glm::distance(start_pos, end_pos);
-	//std::cout << "target_dist: " << target_dist << endl;
+	target_dist = glm::distance(start_pos, end_pos);
 
-	while (target_dist > 0.05 && i < 3) {
+	if (target_dist > 0.1) {
 
-		angles[i] = calc_angle(start_pos, i);
-
-		target_dist = glm::distance(start_pos, end_pos);
-		std::cout << "Target Dist: " << target_dist << endl;
-		i++;
+		angles[n] += calc_angle(start_pos, n);
 
 	}
 
-	std::cout << "Angles: " << angles[0] << ", " << angles[1] << ", " << angles[2] << endl;
+	std::cout << "target_dist: " << target_dist << endl;
+	//std::cout << "Angles: " << angles[0] << ", " << angles[1] << ", " << angles[2] << endl;
+
 }
+
+
 
 #pragma endregion CCD
 
@@ -454,7 +519,7 @@ glm::vec2 calc_spline_point(float t) {
 
 void display() {
 
-	// tell GL to only draw onto a pixel if the shape is closer to the viewer
+	// tell GL to only draw onto a pixel if the shape is closer to the viewe
 	glEnable(GL_DEPTH_TEST); // enable depth-testing
 	glDepthFunc(GL_LESS); // depth-testing interprets a smaller value as "closer"
 	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
@@ -508,7 +573,7 @@ void display() {
 	glUniformMatrix4fv(matrix_location, 1, GL_FALSE, glm::value_ptr(global0));
 
 	glBindVertexArray(vao1);
-	//glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
+	glDrawArrays(GL_TRIANGLES, 0, body.mPointCount);
 
 	if (a_soln) {
 
@@ -673,10 +738,10 @@ void keypress(unsigned char key, int x, int y) {
 			arm_angles = analytical_soln(start_pos);
 		}
 
-		else if (CCD) {
+		/*else if (CCD) {
 
-			CCD();
-		}
+			CCD(i);
+		}*/
 
 		break;
 
@@ -688,10 +753,15 @@ void keypress(unsigned char key, int x, int y) {
 			arm_angles = analytical_soln(start_pos);
 		}
 
-		else if (CCD) {
+		/*else if (CCD) {
 
 			CCD();
-		}
+			i++;
+
+			if (i == 3) {
+				i = 0;
+			}
+		}*/
 
 		break;
 
@@ -703,10 +773,10 @@ void keypress(unsigned char key, int x, int y) {
 			arm_angles = analytical_soln(start_pos);
 		}
 
-		else if (CCD) {
+		/*else if (CCD) {
 
 			CCD();
-		}
+		}*/
 
 		break;
 
@@ -718,10 +788,10 @@ void keypress(unsigned char key, int x, int y) {
 			arm_angles = analytical_soln(start_pos);
 		}
 
-		else if (CCD) {
+		/*else if (CCD) {
 
 			CCD();
-		}
+		}*/
 
 		break;
 
@@ -731,13 +801,44 @@ void keypress(unsigned char key, int x, int y) {
 		ccd = false;
 		break;
 
-	case 'c':
+	case 'g':
 		//CCD();
 		a_soln = false;
 		ccd = true;
 		break;
 
+	case 'c':
+
+		if (!first_time) {
+			
+			links[0] = update_link(0);
+			//std::cout << "link 0: " << links[0].x << ", " << links[0].y << ", " << links[0].z << endl;
+	
+		}
+
+		CCD(0);
+		break;
+
+	case 'v':
+
+		if (!first_time) {
+
+			links[1] = update_link(1);
+			//std::cout << "link 1: " << links[1].x << ", " << links[1].y << ", " << links[1].z << endl;
+
+		}
+
+		CCD(1);
+		break;
+
+	case 'b':
+
+		CCD(2);
+		first_time = false;
+		break;
+
 	}
+
 }
 
 
