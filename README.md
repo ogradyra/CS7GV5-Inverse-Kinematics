@@ -1,17 +1,9 @@
-# Assignment 2 - Inverse Kinematics
+# Real-Time Animation Assignment 2 - Inverse Kinematics
+The purpose of this assignment was to learn how inverse kinematics works in practice. The program was written in C++ using OpenGL libraries. The finished program demonstrates an implementation of 2-bone IK using an analytical solution. A torso with a 2 links is shown to follow a ball around the screen with the end of the 2nd link always pointing at the ball, for both reachable and unreachable positions. As well as this, an attempt at implementing 3-bone IK using CCD is demonstrated. 
 
-## Current Tasks
+2-bone IK, showing the end link always pointing towards the ball:
+![Screenshot](resource_files/al_1.png)
+![Screenshot](resource_files/al_2.png)
 
-**Analytical Solution**
-- Rotate whole model?
-- Fix for edge cases
-
-**CCD Solution**
-- Get function working
-- Read up on CCD
-
-**Animate the Arm**
-- Watch spline lecture
-
-### Editing READMEs:
-[README Style](https://ellen-park.medium.com/comprehensive-guide-to-styling-a-github-readme-2df7a6db1a00#:~:text=%20Comprehensive%20Guide%20To%20Styling%20a%20GitHub%20README,adding%20images%20to%20a%20README.%20%20More%20)
+Link to video demonstrating the features listed above:
+[CS7GV5 - Inverse Kinematics](https://youtu.be/vVoyleIeb7I)
